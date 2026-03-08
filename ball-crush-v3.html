@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BALL CRUSH — Survive!</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --red: #ff2244;
+  --red-dark: #8a0010;
+  --yellow: #ffd93d;
+  --cyan: #00f0ff;
+  --bg: #070710;
+  --panel: #0d0d1f;
+  --border: #1e1e3a;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 100vh; overflow: hidden;
+  font-family: 'Barlow Condensed', sans-serif;
+  color: #fff;
+  user-select: none;
+}
+
+/* ── HUD ── */
+#hud {
+  width: 860px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 0 4px;
+}
+.hud-left { display:flex; gap:20px; }
+.hud-right { display:flex; gap:20px; justify-content:flex-end; }
+.hud-block { text-align:center; }
+.hud-lbl { font-family:'Share Tech Mono'; font-size:9px; letter-spacing:3px; color:var(--red); text-transform:uppercase; }
+.hud-val { font-family:'Bebas Neue'; font-size:42px; line-height:1; color:#fff; }
+.hud-val.yellow { color:var(--yellow); }
+
+#title-center { text-align:center; }
+#main-title {
+  font-family:'Bebas Neue'; font-size:62px; letter-spacing:10px;
+  color:var(--red); line-height:1;
+  text-shadow: 0 0 30px rgba(255,34,68,.7), 5px 5px 0 var(--red-dark);
+}
+#level-tag {
+  font-family:'Share Tech Mono'; font-size:11px; letter-spacing:4px; color:#444;
+  text-align:center;
+}
+
+/* ── Canvas wrap ── */
+#wrap {
+  position:relative;
+  border: 3px solid var(--red);
+  box-shadow: 0 0 60px rgba(255,34,68,.3), inset 0 0 80px rgba(0,0,0,.5);
+}
+
+canvas { display:block; background:var(--bg); }
+
+/* ── Overlays ── */
+.overlay {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  background:rgba(7,7,16,.94);
+  z-index:30;
+}
+.overlay.hidden { display:none; }
+
+/* Name screen */
+#name-screen {}
+#name-screen .big-title {
+  font-family:'Bebas Neue'; font-size:88px; letter-spacing:12px;
+  color:var(--red); line-height:1;
+  text-shadow: 0 0 50px rgba(255,34,68,.8), 6px 6px 0 var(--red-dark);
+  margin-bottom:4px;
+}
+#name-screen .tagline {
+  font-family:'Share Tech Mono'; font-size:12px; letter-spacing:4px;
+  color:#555; margin-bottom:36px;
+}
+.name-box {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  padding: 28px 40px;
+  text-align:center;
+  position:relative;
+  clip-path: polygon(12px 0%,100% 0%,calc(100% - 12px) 100%,0% 100%);
+  margin-bottom: 20px;
+}
+.name-box label {
+  font-family:'Share Tech Mono'; font-size:11px; letter-spacing:4px;
+  color:var(--red); display:block; margin-bottom:12px;
+}
+#player-name-input {
+  background: #0a0a18;
+  border: 2px solid #2a2a4a;
+  color: #fff; font-family:'Bebas Neue'; font-size:36px;
+  letter-spacing:6px; text-align:center;
+  padding: 10px 24px; width:320px; outline:none;
+  transition: border-color .2s;
+}
+#player-name-input:focus { border-color: var(--cyan); box-shadow: 0 0 20px rgba(0,240,255,.2); }
+#name-hint {
+  font-family:'Share Tech Mono'; font-size:10px; letter-spacing:2px;
+  color:#555; margin-top:10px; height:16px; transition:color .2s;
+}
+#name-hint.warn { color: var(--yellow); }
+#name-hint.ok   { color: #44ff88; }
+
+.play-btn {
+  font-family:'Bebas Neue'; font-size:32px; letter-spacing:6px;
+  padding: 16px 60px; background:var(--red); color:#fff;
+  border:none; cursor:pointer;
+  clip-path: polygon(12px 0%,100% 0%,calc(100% - 12px) 100%,0% 100%);
+  box-shadow: 0 0 30px rgba(255,34,68,.5);
+  transition: all .15s;
+}
+.play-btn:hover { background:#ff4466; transform:scale(1.06); box-shadow:0 0 50px rgba(255,34,68,.8); }
+.play-btn:disabled { background:#333; color:#666; cursor:not-allowed; box-shadow:none; transform:none; }
+
+.key-hint { margin-top:18px; font-family:'Share Tech Mono'; font-size:10px; color:#333; letter-spacing:1px; text-align:center; }
+.kbd { background:#151525; border:1px solid #2a2a3a; padding:2px 8px; border-radius:3px; color:#666; }
+
+/* Game over */
+#gameover-screen {}
+#gameover-screen .go-title {
+  font-family:'Bebas Neue'; font-size:96px; letter-spacing:12px;
+  color:var(--red); line-height:1;
+  text-shadow: 0 0 60px rgba(255,34,68,.9), 7px 7px 0 var(--red-dark);
+  animation: pulseTitle 1s ease-in-out infinite alternate;
+}
+@keyframes pulseTitle { from{opacity:1} to{opacity:.7} }
+#gameover-screen .go-sub { font-family:'Share Tech Mono'; font-size:12px; letter-spacing:4px; color:#555; margin:8px 0; }
+#go-score { font-family:'Bebas Neue'; font-size:56px; color:var(--yellow); margin:10px 0; }
+#go-survived { font-family:'Share Tech Mono'; font-size:11px; color:#555; letter-spacing:3px; margin-bottom:24px; }
+#go-survivors-list { font-family:'Share Tech Mono'; font-size:13px; color:#44ff88; letter-spacing:2px; margin-bottom:24px; }
+
+/* Level flash */
+#level-flash {
+  position:absolute; inset:0; display:flex;
+  align-items:center; justify-content:center;
+  pointer-events:none; z-index:25;
+  opacity:0; transition:opacity .1s;
+}
+#level-flash-text {
+  font-family:'Bebas Neue'; font-size:100px; letter-spacing:12px;
+  color:var(--yellow); text-shadow:0 0 60px rgba(255,217,61,.8);
+}
+</style>
+</head>
+<body>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-left">
+    <div class="hud-block"><div class="hud-lbl">Score</div><div class="hud-val" id="h-score">0</div></div>
+    <div class="hud-block"><div class="hud-lbl">Best</div><div class="hud-val yellow" id="h-best">0</div></div>
+  </div>
+  <div id="title-center">
+    <div id="main-title">BALL CRUSH</div>
+    <div id="level-tag">LEVEL <span id="h-level">1</span> &nbsp;·&nbsp; SURVIVE OR DIE</div>
+  </div>
+  <div class="hud-right">
+    <div class="hud-block"><div class="hud-lbl">Alive</div><div class="hud-val" id="h-alive">8</div></div>
+    <div class="hud-block"><div class="hud-lbl">Lives</div><div class="hud-val yellow" id="h-lives">3</div></div>
+  </div>
+</div>
+
+<!-- Canvas -->
+<div id="wrap">
+  <canvas id="gc"></canvas>
+  <div id="level-flash"><div id="level-flash-text"></div></div>
+
+  <!-- Name Entry Screen -->
+  <div class="overlay" id="name-screen">
+    <div class="big-title">BALL CRUSH</div>
+    <div class="tagline">⚠ GIANT BALLS. REAL PEOPLE. NO MERCY. ⚠</div>
+    <div class="name-box">
+      <label>ENTER YOUR NAME TO JOIN THE CHAOS</label>
+      <input id="player-name-input" type="text" maxlength="14" placeholder="YOUR NAME" autocomplete="off" spellcheck="false"/>
+      <div id="name-hint">Type your name and press PLAY</div>
+    </div>
+    <button class="play-btn" id="play-btn" onclick="handlePlay()">PLAY</button>
+    <div class="key-hint">
+      <span class="kbd">W A S D</span> or <span class="kbd">↑ ← ↓ →</span> to move &nbsp;|&nbsp; <span class="kbd">SPACE</span> to dash
+    </div>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div class="overlay hidden" id="gameover-screen">
+    <div class="go-title">CRUSHED!</div>
+    <div class="go-sub" id="go-sub">YOU DIDN'T MAKE IT</div>
+    <div id="go-score"></div>
+    <div id="go-survived"></div>
+    <div id="go-survivors-list"></div>
+    <button class="play-btn" onclick="restartGame()">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  SETUP
+// ═══════════════════════════════════════════════
+const gc = document.getElementById('gc');
+const ctx = gc.getContext('2d');
+const W = 860, H = 560;
+gc.width = W; gc.height = H;
+
+const keys = {};
+document.addEventListener('keydown', e => { keys[e.code]=true; if(e.code==='Space') e.preventDefault(); });
+document.addEventListener('keyup', e => { keys[e.code]=false; });
+
+// ═══════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════
+const WALL = 0;
+const P_SPEED = 3.6;
+const DASH_SPD = 9.5;
+const DASH_DUR = 14;
+const DASH_CD  = 90;
+const BOUNCE_DAMP = 1.0; // walls perfectly elastic
+
+// Ball tiers: [minR, maxR, minSpd, maxSpd, hueOptions]
+const TIERS = [
+  { name:'TINY',   rMin:12, rMax:18, sMin:4.2, sMax:5.5, hues:[350,5,20],    trailLen:6  },
+  { name:'SMALL',  rMin:22, rMax:30, sMin:3.0, sMax:4.0, hues:[25,38,15],    trailLen:7  },
+  { name:'MEDIUM', rMin:36, rMax:46, sMin:2.2, sMax:3.0, hues:[260,280,245], trailLen:8  },
+  { name:'LARGE',  rMin:52, rMax:65, sMin:1.5, sMax:2.2, hues:[190,205,175], trailLen:10 },
+  { name:'GIANT',  rMin:72, rMax:90, sMin:1.0, sMax:1.6, hues:[120,140,100], trailLen:12 },
+];
+
+// Predefined NPC roster
+const NPC_ROSTER = [
+  { name:'Tertius',  shirt:'#ff7733', pants:'#2a1a0a', skin:'#c68642' },
+  { name:'Sam',      shirt:'#33ddff', pants:'#0a1a2a', skin:'#f5c5a3' },
+  { name:'Harrison', shirt:'#ff44aa', pants:'#1a0a1a', skin:'#8d5524' },
+  { name:'Peter',    shirt:'#aaff44', pants:'#0a1a00', skin:'#f5c5a3' },
+  { name:'Dylan',    shirt:'#ffdd00', pants:'#1a1500', skin:'#e8b89a' },
+  { name:'Kara',     shirt:'#cc44ff', pants:'#150a1a', skin:'#fddcb5' },
+  { name:'Michael',  shirt:'#ff4444', pants:'#1a0000', skin:'#c68642' },
+];
+
+// ═══════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════
+let state = 'name'; // name | playing | dying | gameover
+let score=0, best=0, level=1, lives=3, frame=0;
+let player=null, npcs=[], balls=[], particles=[], floaters=[];
+let playerName = '';
+let raf;
+
+// ═══════════════════════════════════════════════
+//  NAME INPUT
+// ═══════════════════════════════════════════════
+const nameInput = document.getElementById('player-name-input');
+const nameHint  = document.getElementById('name-hint');
+
+nameInput.addEventListener('input', () => {
+  const val = nameInput.value.trim();
+  if(!val){ nameHint.textContent='Type your name and press PLAY'; nameHint.className=''; return; }
+  const match = NPC_ROSTER.find(n=>n.name.toLowerCase()===val.toLowerCase());
+  if(match){
+    nameHint.textContent = `⚡ ${match.name} is already in the game — you'll take their spot!`;
+    nameHint.className = 'warn';
+  } else {
+    nameHint.textContent = `✓ Welcome, ${val}! Ready to survive?`;
+    nameHint.className = 'ok';
+  }
+});
+nameInput.addEventListener('keydown', e=>{ if(e.key==='Enter') handlePlay(); });
+
+function handlePlay(){
+  const val = nameInput.value.trim();
+  if(!val) return;
+  playerName = val.charAt(0).toUpperCase() + val.slice(1);
+  document.getElementById('name-screen').classList.add('hidden');
+  startGame();
+}
+
+// ═══════════════════════════════════════════════
+//  START / RESTART
+// ═══════════════════════════════════════════════
+function startGame(){
+  score=0; level=1; lives=3; frame=0;
+  particles=[]; floaters=[];
+  buildNPCs();
+  spawnPlayer();
+  spawnBalls(level);
+  updateHUD();
+  state='playing';
+  if(raf) cancelAnimationFrame(raf);
+  loop();
+}
+
+function restartGame(){
+  document.getElementById('gameover-screen').classList.add('hidden');
+  startGame();
+}
+
+// ═══════════════════════════════════════════════
+//  PLAYER
+// ═══════════════════════════════════════════════
+function spawnPlayer(){
+  player = {
+    x:W/2, y:H/2, vx:0, vy:0, size:11,
+    alive:true, isDashing:false, dashTimer:0, dashCooldown:0, invTimer:0,
+    trailX:[], trailY:[],
+    shirt:'#00e5ff', pants:'#0a2535', skin:'#f5c5a3',
+    name: playerName, legPhase:0, facing:1,
+    isPlayer:true,
+  };
+}
+
+// ═══════════════════════════════════════════════
+//  NPCs
+// ═══════════════════════════════════════════════
+function buildNPCs(){
+  npcs=[];
+  // Filter out anyone whose name matches playerName
+  const roster = NPC_ROSTER.filter(r=>r.name.toLowerCase()!==playerName.toLowerCase());
+  roster.forEach((r,i)=>{
+    npcs.push({
+      x: 60+Math.random()*(W-120),
+      y: 60+Math.random()*(H-120),
+      vx:(Math.random()-.5)*1.8, vy:(Math.random()-.5)*1.8,
+      size:10, alive:true,
+      shirt:r.shirt, pants:r.pants, skin:r.skin,
+      name:r.name, legPhase:Math.random()*Math.PI*2,
+      facing:1, panicTimer:0, id:i, isPlayer:false,
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  BALLS
+// ═══════════════════════════════════════════════
+function spawnBalls(lvl){
+  balls=[];
+  // Mix of sizes that scales with level
+  const mixes = [
+    [{t:1},{t:2},{t:3}],
+    [{t:0},{t:1},{t:2},{t:3}],
+    [{t:0},{t:0},{t:1},{t:2},{t:3}],
+    [{t:0},{t:0},{t:1},{t:1},{t:2},{t:4}],
+    [{t:0},{t:0},{t:0},{t:1},{t:2},{t:3},{t:4}],
+  ];
+  const mix = mixes[Math.min(lvl-1,mixes.length-1)];
+  const spMult = 1 + (lvl-1)*0.13;
+
+  mix.forEach(m=>{
+    const T = TIERS[m.t];
+    const r = T.rMin + Math.random()*(T.rMax-T.rMin);
+    let x,y,tries=0;
+    do{
+      x=r+30+Math.random()*(W-2*r-60);
+      y=r+30+Math.random()*(H-2*r-60);
+      tries++;
+    }while(tries<60 && (
+      Math.hypot(x-W/2,y-H/2)<160 ||
+      balls.some(b=>Math.hypot(x-b.x,y-b.y)<b.r+r+20)
+    ));
+
+    const ang = Math.random()*Math.PI*2;
+    const spd = (T.sMin+Math.random()*(T.sMax-T.sMin))*spMult;
+    const hue = T.hues[Math.floor(Math.random()*T.hues.length)];
+
+    balls.push({
+      x,y,r, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd,
+      hue, tierIdx:m.t, tierName:T.name,
+      rot:0, rotSpd:(Math.random()-.5)*0.15*(1/(r/25)),
+      pulse:Math.random()*Math.PI*2,
+      trailX:[], trailY:[],
+      trailLen:T.trailLen,
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  HUD
+// ═══════════════════════════════════════════════
+function updateHUD(){
+  document.getElementById('h-score').textContent = score;
+  document.getElementById('h-best').textContent  = best;
+  document.getElementById('h-level').textContent = level;
+  document.getElementById('h-lives').textContent = lives;
+  const alive = [player,...npcs].filter(p=>p&&p.alive).length;
+  document.getElementById('h-alive').textContent = alive;
+}
+
+// ═══════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════
+function loop(){
+  update();
+  draw();
+  raf=requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════
+//  UPDATE
+// ═══════════════════════════════════════════════
+function update(){
+  if(state!=='playing' && state!=='dying') return;
+  frame++;
+
+  // Score every half-second
+  if(frame%30===0 && state==='playing'){
+    score += 10*level;
+    if(score>best) best=score;
+    updateHUD();
+  }
+
+  // Level up every 20 seconds
+  if(frame%600===0 && state==='playing'){
+    level++;
+    document.getElementById('h-level').textContent=level;
+    spawnBalls(level);
+    showLevelFlash();
+  }
+
+  // ── Player movement ──
+  if(player && player.alive){
+    let dx=0,dy=0;
+    if(keys['ArrowLeft']||keys['KeyA'])  dx-=1;
+    if(keys['ArrowRight']||keys['KeyD']) dx+=1;
+    if(keys['ArrowUp']||keys['KeyW'])    dy-=1;
+    if(keys['ArrowDown']||keys['KeyS'])  dy+=1;
+    const len=Math.hypot(dx,dy);
+    if(len>0){dx/=len;dy/=len;}
+
+    if(keys['Space']&&player.dashCooldown<=0&&len>0){
+      player.isDashing=true; player.dashTimer=DASH_DUR; player.dashCooldown=DASH_CD;
+    }
+    const spd=player.isDashing?DASH_SPD:P_SPEED;
+    if(len>0){ player.vx=dx*spd; player.vy=dy*spd; if(dx!==0) player.facing=dx>0?1:-1; }
+    else { player.vx*=0.75; player.vy*=0.75; }
+
+    if(player.dashTimer>0) player.dashTimer--; else player.isDashing=false;
+    if(player.dashCooldown>0) player.dashCooldown--;
+    if(player.invTimer>0) player.invTimer--;
+
+    player.x+=player.vx; player.y+=player.vy;
+    clamp(player);
+
+    // Leg animation
+    if(Math.hypot(player.vx,player.vy)>0.3) player.legPhase+=0.25;
+
+    // Trail
+    player.trailX.push(player.x); player.trailY.push(player.y);
+    if(player.trailX.length>12){player.trailX.shift();player.trailY.shift();}
+  }
+
+  // ── NPC AI ──
+  npcs.forEach(npc=>{
+    if(!npc.alive) return;
+
+    // Find nearest threatening ball (weighted by size)
+    let threat=null, threatScore=0;
+    balls.forEach(b=>{
+      const d=Math.hypot(npc.x-b.x,npc.y-b.y)-b.r;
+      const sc = (b.r*2) / (d+1);
+      if(sc>threatScore){threatScore=sc; threat=b;}
+    });
+
+    if(threat && threatScore>1.5){
+      const ax=npc.x-threat.x, ay=npc.y-threat.y;
+      const al=Math.hypot(ax,ay)||1;
+      const urgency = Math.min(4, threatScore/2);
+      npc.vx+=(ax/al)*urgency*0.25;
+      npc.vy+=(ay/al)*urgency*0.25;
+      npc.panicTimer=50;
+      if(ax!==0) npc.facing = ax>0?1:-1;
+    } else {
+      // Wander
+      if(Math.random()<0.015){
+        npc.vx+=(Math.random()-.5)*0.8;
+        npc.vy+=(Math.random()-.5)*0.8;
+      }
+    }
+
+    // Speed cap
+    const spd=Math.hypot(npc.vx,npc.vy);
+    const maxSpd=npc.panicTimer>0?3.2:1.5;
+    if(spd>maxSpd){npc.vx=(npc.vx/spd)*maxSpd;npc.vy=(npc.vy/spd)*maxSpd;}
+    if(spd>0.2) npc.facing=npc.vx>0?1:-1;
+
+    npc.x+=npc.vx; npc.y+=npc.vy;
+    clamp(npc);
+    if(npc.panicTimer>0) npc.panicTimer--;
+    if(Math.hypot(npc.vx,npc.vy)>0.3) npc.legPhase+=0.22;
+  });
+
+  // ── Ball physics ──
+  balls.forEach(b=>{
+    b.x+=b.vx; b.y+=b.vy;
+    b.rot+=b.rotSpd;
+    b.pulse+=0.05;
+
+    // Wall bounce (perfectly elastic)
+    if(b.x-b.r<=WALL){      b.x=b.r+WALL;        b.vx=Math.abs(b.vx)*BOUNCE_DAMP; wallSparks(b.x,b.y); }
+    if(b.x+b.r>=W-WALL){    b.x=W-WALL-b.r;      b.vx=-Math.abs(b.vx)*BOUNCE_DAMP; wallSparks(b.x,b.y); }
+    if(b.y-b.r<=WALL){      b.y=b.r+WALL;        b.vy=Math.abs(b.vy)*BOUNCE_DAMP; wallSparks(b.x,b.y); }
+    if(b.y+b.r>=H-WALL){    b.y=H-WALL-b.r;      b.vy=-Math.abs(b.vy)*BOUNCE_DAMP; wallSparks(b.x,b.y); }
+
+    // Trail
+    b.trailX.push(b.x); b.trailY.push(b.y);
+    if(b.trailX.length>b.trailLen){b.trailX.shift();b.trailY.shift();}
+  });
+
+  // ── Ball-Ball collisions ──
+  for(let i=0;i<balls.length;i++){
+    for(let j=i+1;j<balls.length;j++){
+      const a=balls[i],b=balls[j];
+      const dx=b.x-a.x,dy=b.y-a.y;
+      const dist=Math.hypot(dx,dy);
+      const minD=a.r+b.r;
+      if(dist<minD&&dist>0.01){
+        const nx=dx/dist,ny=dy/dist;
+        const overlap=(minD-dist)/2;
+        a.x-=nx*overlap; a.y-=ny*overlap;
+        b.x+=nx*overlap; b.y+=ny*overlap;
+        const dvx=b.vx-a.vx,dvy=b.vy-a.vy;
+        const dot=dvx*nx+dvy*ny;
+        if(dot<0){
+          // mass proportional to area
+          const ma=a.r*a.r, mb=b.r*b.r, mt=ma+mb;
+          const impulse=2*dot/mt;
+          a.vx+=impulse*mb*nx; a.vy+=impulse*mb*ny;
+          b.vx-=impulse*ma*nx; b.vy-=impulse*ma*ny;
+        }
+        // Collision flash
+        for(let k=0;k<10;k++) addParticle((a.x+b.x)/2,(a.y+b.y)/2,`hsl(${a.hue},90%,65%)`,2.5);
+      }
+    }
+  }
+
+  // ── Ball-Person collisions ──
+  const everyone = player ? [player,...npcs] : [...npcs];
+  everyone.forEach(p=>{
+    if(!p.alive) return;
+    // Skip player if invincible
+    if(p.isPlayer && p.invTimer>0) return;
+    balls.forEach(b=>{
+      const d=Math.hypot(p.x-b.x,p.y-b.y);
+      if(d<b.r+p.size*0.85) crush(p,b);
+    });
+  });
+
+  // ── Particles ──
+  particles=particles.filter(p=>{
+    p.x+=p.vx; p.y+=p.vy;
+    p.vy+=0.18; p.vx*=0.96;
+    p.life--;
+    return p.life>0;
+  });
+  floaters=floaters.filter(f=>{
+    f.y-=0.6; f.life--; f.alpha=f.life/f.maxLife;
+    return f.life>0;
+  });
+
+  // ── Check game over ──
+  if(player && !player.alive && state==='playing'){
+    state='dying';
+    setTimeout(()=>triggerGameOver(),1200);
+  }
+}
+
+function clamp(p){
+  const m=p.size;
+  if(p.x<m){p.x=m; p.vx=Math.abs(p.vx);}
+  if(p.x>W-m){p.x=W-m; p.vx=-Math.abs(p.vx);}
+  if(p.y<m){p.y=m; p.vy=Math.abs(p.vy);}
+  if(p.y>H-m){p.y=H-m; p.vy=-Math.abs(p.vy);}
+}
+
+function crush(person, ball){
+  person.alive=false;
+  // Splat
+  for(let i=0;i<35;i++) addParticle(person.x,person.y,person.shirt,3);
+  for(let i=0;i<15;i++) addParticle(person.x,person.y,person.skin,2);
+  // Floater scream
+  const msgs=['AHHH!','HELP!','NO!!','RUN!','OHHH!','YIKES!','NOOOO!'];
+  addFloater(person.x,person.y-20,msgs[Math.floor(Math.random()*msgs.length)],'#fff');
+  addFloater(person.x,person.y-36,person.name,'#ffdd55');
+  updateHUD();
+}
+
+function addParticle(x,y,color,sMult=1){
+  const ang=Math.random()*Math.PI*2;
+  const spd=(1+Math.random()*4)*sMult;
+  particles.push({x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd-1.5,color,life:18+Math.random()*22,size:2+Math.random()*3});
+}
+
+function wallSparks(x,y){
+  for(let i=0;i<6;i++){
+    particles.push({x,y,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5,color:'#ff8800',life:12,size:2});
+  }
+}
+
+function addFloater(x,y,text,color){
+  floaters.push({x,y,text,color,life:70,maxLife:70,alpha:1});
+}
+
+// ─── Level Flash ────────────────────────────────
+let levelFlashTimer=0;
+function showLevelFlash(){
+  levelFlashTimer=90;
+  document.getElementById('level-flash-text').textContent=`LEVEL ${level}!`;
+  document.getElementById('level-flash').style.opacity='1';
+}
+function tickLevelFlash(){
+  if(levelFlashTimer>0){
+    levelFlashTimer--;
+    if(levelFlashTimer<=0) document.getElementById('level-flash').style.opacity='0';
+  }
+}
+
+// ─── Game Over ──────────────────────────────────
+function triggerGameOver(){
+  state='gameover';
+  if(score>best) best=score;
+  const survivors=npcs.filter(n=>n.alive).map(n=>n.name);
+  document.getElementById('go-score').textContent='SCORE: '+score;
+  document.getElementById('go-sub').textContent = playerName.toUpperCase()+' WAS CRUSHED!';
+  document.getElementById('go-survived').textContent =
+    survivors.length ? `${survivors.length} survivor${survivors.length>1?'s':''} remain:` : 'Everyone was crushed!';
+  document.getElementById('go-survivors-list').textContent = survivors.join(' · ');
+  document.getElementById('gameover-screen').classList.remove('hidden');
+  updateHUD();
+}
+
+// ═══════════════════════════════════════════════
+//  DRAW
+// ═══════════════════════════════════════════════
+function draw(){
+  tickLevelFlash();
+
+  // Background
+  ctx.fillStyle='#070710';
+  ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,0.025)';
+  ctx.lineWidth=1;
+  for(let x=0;x<=W;x+=44){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<=H;y+=44){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  // Corner accents
+  drawCornerAccents();
+
+  // Dead splatters
+  const everyone=[...(player?[player]:[]),...npcs];
+  everyone.forEach(p=>{
+    if(!p.alive){
+      ctx.save();
+      ctx.globalAlpha=0.3;
+      ctx.fillStyle='#8b0000';
+      ctx.beginPath();
+      ctx.ellipse(p.x,p.y+p.size*0.8,p.size*2,p.size*0.6,0,0,Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+  });
+
+  // Particles
+  particles.forEach(p=>{
+    ctx.save();
+    ctx.globalAlpha=p.life/40;
+    ctx.fillStyle=p.color;
+    ctx.shadowColor=p.color;
+    ctx.shadowBlur=6;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // Ball trails
+  balls.forEach(b=>{
+    for(let i=0;i<b.trailX.length;i++){
+      const t=i/b.trailX.length;
+      ctx.save();
+      ctx.globalAlpha=t*0.3;
+      ctx.fillStyle=`hsl(${b.hue},80%,55%)`;
+      ctx.beginPath();
+      ctx.arc(b.trailX[i],b.trailY[i],b.r*t*0.7,0,Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+  });
+
+  // Balls
+  balls.forEach(b=>drawBall(b));
+
+  // Alive NPCs
+  npcs.forEach(n=>{ if(n.alive) drawPerson(n); });
+
+  // Player
+  if(player && player.alive) drawPlayerChar();
+
+  // Floaters (screams / names)
+  floaters.forEach(f=>{
+    ctx.save();
+    ctx.globalAlpha=f.alpha;
+    ctx.fillStyle=f.color;
+    ctx.font=`bold 13px 'Share Tech Mono', monospace`;
+    ctx.textAlign='center';
+    ctx.shadowColor=f.color; ctx.shadowBlur=10;
+    ctx.fillText(f.text,f.x,f.y);
+    ctx.restore();
+  });
+
+  // Danger vignette
+  if(player&&player.alive){
+    let minDist=Infinity;
+    balls.forEach(b=>{ const d=Math.hypot(player.x-b.x,player.y-b.y)-b.r; if(d<minDist) minDist=d; });
+    if(minDist<100){
+      const intensity=Math.max(0,1-minDist/100)*0.5;
+      const vg=ctx.createRadialGradient(W/2,H/2,H*0.25,W/2,H/2,H*0.85);
+      vg.addColorStop(0,'rgba(255,0,0,0)');
+      vg.addColorStop(1,`rgba(255,0,0,${intensity})`);
+      ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+    }
+  }
+
+  // Player dash trail
+  if(player&&player.isDashing){
+    for(let i=0;i<player.trailX.length;i++){
+      const t=i/player.trailX.length;
+      ctx.save();
+      ctx.globalAlpha=t*0.35;
+      ctx.fillStyle='#00e5ff';
+      ctx.shadowColor='#00e5ff'; ctx.shadowBlur=12;
+      ctx.beginPath();
+      ctx.arc(player.trailX[i],player.trailY[i],player.size*t*0.9,0,Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+function drawCornerAccents(){
+  const size=24, col='rgba(255,34,68,0.4)', lw=2;
+  ctx.strokeStyle=col; ctx.lineWidth=lw;
+  [[0,0],[W,0],[0,H],[W,H]].forEach(([cx,cy])=>{
+    const sx=cx===0?1:-1, sy=cy===0?1:-1;
+    ctx.beginPath(); ctx.moveTo(cx+sx*size,cy); ctx.lineTo(cx,cy); ctx.lineTo(cx,cy+sy*size); ctx.stroke();
+  });
+}
+
+function drawBall(b){
+  ctx.save();
+  ctx.translate(b.x,b.y);
+  ctx.rotate(b.rot);
+
+  // Glow
+  ctx.shadowColor=`hsl(${b.hue},90%,55%)`;
+  ctx.shadowBlur=25+Math.sin(b.pulse)*8;
+
+  // Body gradient
+  const g=ctx.createRadialGradient(-b.r*0.32,-b.r*0.35,b.r*0.04,0,0,b.r);
+  g.addColorStop(0,`hsl(${b.hue},50%,92%)`);
+  g.addColorStop(0.35,`hsl(${b.hue},85%,58%)`);
+  g.addColorStop(1,`hsl(${b.hue},100%,18%)`);
+  ctx.fillStyle=g;
+  ctx.beginPath(); ctx.arc(0,0,b.r,0,Math.PI*2); ctx.fill();
+
+  ctx.shadowBlur=0;
+
+  // Shine
+  const sh=ctx.createRadialGradient(-b.r*0.3,-b.r*0.38,1,-b.r*0.18,-b.r*0.24,b.r*0.52);
+  sh.addColorStop(0,'rgba(255,255,255,0.65)');
+  sh.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=sh;
+  ctx.beginPath(); ctx.arc(0,0,b.r,0,Math.PI*2); ctx.fill();
+
+  // Seam
+  ctx.strokeStyle=`hsla(${b.hue},60%,30%,0.5)`;
+  ctx.lineWidth=Math.max(1.5, b.r*0.06);
+  ctx.beginPath(); ctx.arc(0,0,b.r*0.9,0.2,Math.PI-0.2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0,b.r*0.9,Math.PI+0.2,-0.2); ctx.stroke();
+
+  // Tier label on large+ balls
+  if(b.r>=36){
+    ctx.shadowBlur=0;
+    ctx.fillStyle=`rgba(255,255,255,0.5)`;
+    ctx.font=`bold ${Math.max(9,b.r*0.22)}px 'Bebas Neue', sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(b.tierName,0,0);
+  }
+
+  ctx.restore();
+}
+
+function drawPerson(p, isPlayer=false){
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  if(p.facing===-1) ctx.scale(-1,1);
+
+  const s=p.size;
+  const moving=Math.hypot(p.vx||0,p.vy||0)>0.3;
+  const swing=moving?Math.sin(p.legPhase)*0.4:0;
+
+  if(isPlayer){
+    ctx.shadowColor='#00e5ff';
+    ctx.shadowBlur=p.isDashing?30:14;
+  }
+
+  // Shadow under feet
+  ctx.save();
+  if(p.facing===-1) ctx.scale(-1,1); // undo flip for shadow
+  ctx.globalAlpha=0.3;
+  ctx.fillStyle='#000';
+  ctx.beginPath();
+  ctx.ellipse(0,s*1.5,s*0.9,s*0.25,0,0,Math.PI*2);
+  ctx.fill();
+  ctx.globalAlpha=1;
+  ctx.restore();
+
+  // Legs
+  ctx.lineCap='round';
+  ctx.lineWidth=s*0.55;
+
+  // Left leg
+  ctx.strokeStyle=p.pants;
+  ctx.beginPath();
+  ctx.moveTo(-s*0.22,s*0.35);
+  ctx.lineTo(-s*0.38+Math.sin(swing)*s*0.5,s*1.4);
+  ctx.stroke();
+  // Shoe L
+  ctx.fillStyle='#222';
+  ctx.beginPath();
+  ctx.ellipse(-s*0.38+Math.sin(swing)*s*0.5,s*1.45,s*0.3,s*0.12,0,0,Math.PI*2);
+  ctx.fill();
+
+  // Right leg
+  ctx.strokeStyle=p.pants;
+  ctx.beginPath();
+  ctx.moveTo(s*0.22,s*0.35);
+  ctx.lineTo(s*0.38-Math.sin(swing)*s*0.5,s*1.4);
+  ctx.stroke();
+  // Shoe R
+  ctx.fillStyle='#222';
+  ctx.beginPath();
+  ctx.ellipse(s*0.38-Math.sin(swing)*s*0.5,s*1.45,s*0.3,s*0.12,0,0,Math.PI*2);
+  ctx.fill();
+
+  // Body
+  ctx.fillStyle=p.shirt;
+  ctx.beginPath();
+  ctx.roundRect(-s*0.58,-s*0.55,s*1.16,s*0.95,s*0.22);
+  ctx.fill();
+
+  // Arms
+  ctx.lineWidth=s*0.46;
+  const aSwing=moving?Math.sin(p.legPhase+Math.PI)*0.5:0;
+  ctx.strokeStyle=p.shirt;
+  ctx.beginPath();
+  ctx.moveTo(-s*0.55,-s*0.25);
+  ctx.lineTo(-s*1.05+aSwing*s*0.4,s*0.3);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(s*0.55,-s*0.25);
+  ctx.lineTo(s*1.05-aSwing*s*0.4,s*0.3);
+  ctx.stroke();
+
+  // Head
+  ctx.shadowBlur=0;
+  ctx.fillStyle=p.skin;
+  ctx.beginPath();
+  ctx.arc(0,-s*0.95,s*0.62,0,Math.PI*2);
+  ctx.fill();
+
+  // Hair (simple)
+  ctx.fillStyle=isPlayer?'#005577':'#222';
+  ctx.beginPath();
+  ctx.arc(0,-s*1.1,s*0.58,Math.PI,0);
+  ctx.fill();
+
+  // Eyes
+  ctx.fillStyle='#111';
+  const eyeY=-s*0.99;
+  ctx.beginPath();
+  ctx.arc(-s*0.22,eyeY,s*0.11,0,Math.PI*2);
+  ctx.arc(s*0.22,eyeY,s*0.11,0,Math.PI*2);
+  ctx.fill();
+
+  // Pupils (white dot)
+  ctx.fillStyle='#fff';
+  ctx.beginPath();
+  ctx.arc(-s*0.19,eyeY-s*0.04,s*0.04,0,Math.PI*2);
+  ctx.arc(s*0.25,eyeY-s*0.04,s*0.04,0,Math.PI*2);
+  ctx.fill();
+
+  // Mouth: smile or panic
+  ctx.strokeStyle='#444'; ctx.lineWidth=s*0.11;
+  ctx.beginPath();
+  if(p.panicTimer>5){
+    ctx.arc(0,-s*0.76,s*0.2,0,Math.PI);
+  } else {
+    ctx.moveTo(-s*0.18,-s*0.76);
+    ctx.quadraticCurveTo(0,-s*0.62,s*0.18,-s*0.76);
+  }
+  ctx.stroke();
+
+  // Name tag above head
+  ctx.save();
+  if(p.facing===-1) ctx.scale(-1,1);
+  ctx.font=`bold ${isPlayer?11:10}px 'Share Tech Mono', monospace`;
+  ctx.textAlign='center';
+  const nameCol = isPlayer?'#00e5ff':(p.panicTimer>0?'#ffdd55':'rgba(255,255,255,0.75)');
+  ctx.fillStyle=nameCol;
+  ctx.shadowColor=nameCol; ctx.shadowBlur=isPlayer?8:4;
+  ctx.fillText(p.name, 0, -s*2.1);
+  ctx.restore();
+
+  // Player ring
+  if(isPlayer){
+    ctx.strokeStyle='#00e5ff';
+    ctx.lineWidth=1.5;
+    ctx.globalAlpha=0.45+Math.sin(frame*0.12)*0.25;
+    ctx.beginPath();
+    ctx.arc(0,s*0.2,s*2.4,0,Math.PI*2);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawPlayerChar(){
+  if(!player) return;
+  // Dash cooldown arc
+  if(player.dashCooldown>0){
+    const pct=1-player.dashCooldown/DASH_CD;
+    ctx.save();
+    ctx.strokeStyle='rgba(0,229,255,0.5)';
+    ctx.lineWidth=2.5;
+    ctx.beginPath();
+    ctx.arc(player.x,player.y-player.size*2.8,8,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);
+    ctx.stroke();
+    ctx.restore();
+  }
+  drawPerson(player, true);
+}
+
+// ═══════════════════════════════════════════════
+//  ENTER KEY
+// ═══════════════════════════════════════════════
+nameInput.focus();
+</script>
+</body>
+</html>
