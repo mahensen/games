@@ -191,7 +191,7 @@ canvas { display:block; background:var(--bg); }
     </div>
     <button class="play-btn" id="play-btn" onclick="handlePlay()">PLAY</button>
     <div class="key-hint">
-      <span class="kbd">W A S D</span> or <span class="kbd">↑ ← ↓ →</span> to move &nbsp;|&nbsp; <span class="kbd">SPACE</span> to dash
+      <span class="kbd">A / D</span> or <span class="kbd">← →</span> to run &nbsp;|&nbsp; <span class="kbd">SPACE</span> to jump
     </div>
   </div>
 
@@ -223,19 +223,22 @@ document.addEventListener('keyup', e => { keys[e.code]=false; });
 //  CONSTANTS
 // ═══════════════════════════════════════════════
 const WALL = 0;
+const FLOOR_Y = H - 2;      // y of the ground (bottom wall)
 const P_SPEED = 3.6;
 const DASH_SPD = 9.5;
 const DASH_DUR = 14;
 const DASH_CD  = 90;
-const BOUNCE_DAMP = 1.0; // walls perfectly elastic
+const GRAVITY  = 0.42;            // pixels/frame² downward
+const FLOOR_FRICTION = 0.983;     // horizontal damping while touching floor
+const WALL_RESTITUTION = 0.78;    // energy kept on side-wall bounce
 
 // Ball tiers: [minR, maxR, minSpd, maxSpd, hueOptions]
 const TIERS = [
-  { name:'TINY',   rMin:12, rMax:18, sMin:4.2, sMax:5.5, hues:[350,5,20],    trailLen:6  },
-  { name:'SMALL',  rMin:22, rMax:30, sMin:3.0, sMax:4.0, hues:[25,38,15],    trailLen:7  },
-  { name:'MEDIUM', rMin:36, rMax:46, sMin:2.2, sMax:3.0, hues:[260,280,245], trailLen:8  },
-  { name:'LARGE',  rMin:52, rMax:65, sMin:1.5, sMax:2.2, hues:[190,205,175], trailLen:10 },
-  { name:'GIANT',  rMin:72, rMax:90, sMin:1.0, sMax:1.6, hues:[120,140,100], trailLen:12 },
+  { name:'TINY',   rMin:12, rMax:18, sMin:4.2, sMax:5.5, hues:[350,5,20],    trailLen:6,  bounce:0.82 },
+  { name:'SMALL',  rMin:22, rMax:30, sMin:3.0, sMax:4.0, hues:[25,38,15],    trailLen:7,  bounce:0.75 },
+  { name:'MEDIUM', rMin:36, rMax:46, sMin:2.2, sMax:3.0, hues:[260,280,245], trailLen:8,  bounce:0.68 },
+  { name:'LARGE',  rMin:52, rMax:65, sMin:1.5, sMax:2.2, hues:[190,205,175], trailLen:10, bounce:0.60 },
+  { name:'GIANT',  rMin:72, rMax:90, sMin:1.0, sMax:1.6, hues:[120,140,100], trailLen:12, bounce:0.50 },
 ];
 
 // Predefined NPC roster
@@ -310,9 +313,10 @@ function restartGame(){
 //  PLAYER
 // ═══════════════════════════════════════════════
 function spawnPlayer(){
+  const groundY = H - 18 - 11*1.5;
   player = {
-    x:W/2, y:H/2, vx:0, vy:0, size:11,
-    alive:true, isDashing:false, dashTimer:0, dashCooldown:0, invTimer:0,
+    x:W/2, y:groundY, vx:0, vy:0, size:11,
+    alive:true, invTimer:0, jumpHeld:false,
     trailX:[], trailY:[],
     shirt:'#00e5ff', pants:'#0a2535', skin:'#f5c5a3',
     name: playerName, legPhase:0, facing:1,
@@ -325,13 +329,13 @@ function spawnPlayer(){
 // ═══════════════════════════════════════════════
 function buildNPCs(){
   npcs=[];
-  // Filter out anyone whose name matches playerName
+  const groundY = H - 18 - 10*1.5;
   const roster = NPC_ROSTER.filter(r=>r.name.toLowerCase()!==playerName.toLowerCase());
   roster.forEach((r,i)=>{
     npcs.push({
       x: 60+Math.random()*(W-120),
-      y: 60+Math.random()*(H-120),
-      vx:(Math.random()-.5)*1.8, vy:(Math.random()-.5)*1.8,
+      y: groundY,
+      vx:(Math.random()-.5)*1.8, vy:0,
       size:10, alive:true,
       shirt:r.shirt, pants:r.pants, skin:r.skin,
       name:r.name, legPhase:Math.random()*Math.PI*2,
@@ -362,24 +366,29 @@ function spawnBalls(lvl){
     let x,y,tries=0;
     do{
       x=r+30+Math.random()*(W-2*r-60);
-      y=r+30+Math.random()*(H-2*r-60);
+      y=r+20+Math.random()*(H*0.45); // top half so balls fall naturally
       tries++;
     }while(tries<60 && (
       Math.hypot(x-W/2,y-H/2)<160 ||
       balls.some(b=>Math.hypot(x-b.x,y-b.y)<b.r+r+20)
     ));
 
-    const ang = Math.random()*Math.PI*2;
+    // Give balls a mostly horizontal initial velocity; gravity handles the rest
+    const ang = (Math.random()-.5)*Math.PI*0.6; // mostly horizontal launch
     const spd = (T.sMin+Math.random()*(T.sMax-T.sMin))*spMult;
     const hue = T.hues[Math.floor(Math.random()*T.hues.length)];
 
     balls.push({
       x,y,r, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd,
       hue, tierIdx:m.t, tierName:T.name,
+      bounce: T.bounce,
       rot:0, rotSpd:(Math.random()-.5)*0.15*(1/(r/25)),
       pulse:Math.random()*Math.PI*2,
       trailX:[], trailY:[],
       trailLen:T.trailLen,
+      squashX:1, squashY:1,   // squash-stretch on bounce
+      onFloor:false,
+      shadowScale:1,
     });
   });
 }
@@ -429,32 +438,46 @@ function update(){
 
   // ── Player movement ──
   if(player && player.alive){
-    let dx=0,dy=0;
+    let dx=0;
     if(keys['ArrowLeft']||keys['KeyA'])  dx-=1;
     if(keys['ArrowRight']||keys['KeyD']) dx+=1;
-    if(keys['ArrowUp']||keys['KeyW'])    dy-=1;
-    if(keys['ArrowDown']||keys['KeyS'])  dy+=1;
-    const len=Math.hypot(dx,dy);
-    if(len>0){dx/=len;dy/=len;}
 
-    if(keys['Space']&&player.dashCooldown<=0&&len>0){
-      player.isDashing=true; player.dashTimer=DASH_DUR; player.dashCooldown=DASH_CD;
+    const GROUND_Y = H - 18 - player.size*1.5;
+    const onGround = player.y >= GROUND_Y - 2;
+
+    // ── Jump: Space, W, or ArrowUp — only when on ground, no cooldown needed ──
+    if((keys['Space']||keys['ArrowUp']||keys['KeyW']) && onGround && !player.jumpHeld){
+      player.vy = -11.5;
+      player.jumpHeld = true;   // must release key before jumping again
+      // Small jump-dust effect
+      for(let i=0;i<8;i++){
+        const ang = Math.PI + (Math.random()-.5)*1.2;
+        particles.push({
+          x: player.x + (Math.random()-.5)*16,
+          y: GROUND_Y + player.size,
+          vx: Math.cos(ang)*(1+Math.random()*2),
+          vy: Math.sin(ang)*(1+Math.random()*2),
+          color:'#00e5ff', life:18+Math.random()*12, size:2+Math.random()*2
+        });
+      }
     }
-    const spd=player.isDashing?DASH_SPD:P_SPEED;
-    if(len>0){ player.vx=dx*spd; player.vy=dy*spd; if(dx!==0) player.facing=dx>0?1:-1; }
-    else { player.vx*=0.75; player.vy*=0.75; }
+    // Reset jumpHeld when key is released
+    if(!keys['Space']&&!keys['ArrowUp']&&!keys['KeyW']) player.jumpHeld = false;
 
-    if(player.dashTimer>0) player.dashTimer--; else player.isDashing=false;
-    if(player.dashCooldown>0) player.dashCooldown--;
+    const spd = P_SPEED;
+    if(dx!==0){ player.vx=dx*spd; player.facing=dx>0?1:-1; }
+    else { player.vx*=0.78; }
+
+    // Gravity
+    player.vy += GRAVITY * 0.72;
+
     if(player.invTimer>0) player.invTimer--;
 
     player.x+=player.vx; player.y+=player.vy;
     clamp(player);
 
-    // Leg animation
-    if(Math.hypot(player.vx,player.vy)>0.3) player.legPhase+=0.25;
+    if(Math.abs(player.vx)>0.3) player.legPhase+=0.25;
 
-    // Trail
     player.trailX.push(player.x); player.trailY.push(player.y);
     if(player.trailX.length>12){player.trailX.shift();player.trailY.shift();}
   }
@@ -475,8 +498,8 @@ function update(){
       const ax=npc.x-threat.x, ay=npc.y-threat.y;
       const al=Math.hypot(ax,ay)||1;
       const urgency = Math.min(4, threatScore/2);
-      npc.vx+=(ax/al)*urgency*0.25;
-      npc.vy+=(ay/al)*urgency*0.25;
+      // Only push horizontally — they run on the ground
+      npc.vx+=(ax/al)*urgency*0.3;
       npc.panicTimer=50;
       if(ax!==0) npc.facing = ax>0?1:-1;
     } else {
@@ -499,21 +522,95 @@ function update(){
     if(Math.hypot(npc.vx,npc.vy)>0.3) npc.legPhase+=0.22;
   });
 
-  // ── Ball physics ──
+  // ── Ball physics (gravity) ──
   balls.forEach(b=>{
-    b.x+=b.vx; b.y+=b.vy;
-    b.rot+=b.rotSpd;
-    b.pulse+=0.05;
+    // Apply gravity
+    b.vy += GRAVITY;
 
-    // Wall bounce (perfectly elastic)
-    if(b.x-b.r<=WALL){      b.x=b.r+WALL;        b.vx=Math.abs(b.vx)*BOUNCE_DAMP; wallSparks(b.x,b.y); }
-    if(b.x+b.r>=W-WALL){    b.x=W-WALL-b.r;      b.vx=-Math.abs(b.vx)*BOUNCE_DAMP; wallSparks(b.x,b.y); }
-    if(b.y-b.r<=WALL){      b.y=b.r+WALL;        b.vy=Math.abs(b.vy)*BOUNCE_DAMP; wallSparks(b.x,b.y); }
-    if(b.y+b.r>=H-WALL){    b.y=H-WALL-b.r;      b.vy=-Math.abs(b.vy)*BOUNCE_DAMP; wallSparks(b.x,b.y); }
+    b.x += b.vx;
+    b.y += b.vy;
+    b.rot += b.rotSpd;
+    b.pulse += 0.05;
+
+    // Recover squash toward 1
+    b.squashX += (1 - b.squashX) * 0.18;
+    b.squashY += (1 - b.squashY) * 0.18;
+
+    // ── Floor bounce ──
+    if(b.y + b.r >= H){
+      b.y = H - b.r;
+      const impactVy = Math.abs(b.vy);
+      b.vy = -impactVy * b.bounce;
+      // Light rolling friction — barely slows horizontal
+      b.vx *= 0.998;
+      // Squash on impact
+      const squashAmt = Math.min(0.38, impactVy * 0.012);
+      if(squashAmt > 0.04){
+        b.squashY = 1 - squashAmt;
+        b.squashX = 1 + squashAmt * 0.6;
+        if(impactVy > 3) bounceFloorSparks(b.x, H, b.hue);
+      }
+      // When vertical bounce energy dies out, give a gentle upward kick
+      // so the ball always keeps bouncing instead of resting flat
+      if(Math.abs(b.vy) < 1.8){
+        b.vy = -(2.5 + Math.random() * 1.5);  // small perpetual bounce
+        b.onFloor = true;
+      } else {
+        b.onFloor = false;
+      }
+      // Spin from rolling
+      b.rotSpd = (b.vx / b.r) * 0.6;
+
+      // ── Enforce minimum horizontal speed ──
+      const T = TIERS[b.tierIdx];
+      const minH = T.sMin * 0.7;   // 70 % of tier's min speed
+      if(Math.abs(b.vx) < minH){
+        // Kick in a random direction with base speed
+        b.vx = (Math.random() < 0.5 ? 1 : -1) * (T.sMin + Math.random() * (T.sMax - T.sMin));
+      }
+    } else {
+      b.onFloor = false;
+    }
+
+    // ── Enforce min speed while airborne too (catches slow balls after collisions) ──
+    const totalSpd = Math.hypot(b.vx, b.vy);
+    const minTotal = TIERS[b.tierIdx].sMin * 0.5;
+    if(totalSpd < minTotal && totalSpd > 0){
+      const scale = minTotal / totalSpd;
+      b.vx *= scale;
+      // Only scale vy if not in free-fall (avoid fighting gravity)
+      if(b.vy < 0) b.vy *= scale;
+    }
+
+    // ── Ceiling bounce ──
+    if(b.y - b.r <= 0){
+      b.y = b.r;
+      b.vy = Math.abs(b.vy) * b.bounce;
+      b.squashY = 1 - 0.15; b.squashX = 1 + 0.09;
+      wallSparks(b.x, 0);
+    }
+
+    // ── Side wall bounce ──
+    if(b.x - b.r <= 0){
+      b.x = b.r;
+      b.vx = Math.abs(b.vx) * WALL_RESTITUTION;
+      b.squashX = 1 - 0.22; b.squashY = 1 + 0.14;
+      wallSparks(b.x, b.y);
+    }
+    if(b.x + b.r >= W){
+      b.x = W - b.r;
+      b.vx = -Math.abs(b.vx) * WALL_RESTITUTION;
+      b.squashX = 1 - 0.22; b.squashY = 1 + 0.14;
+      wallSparks(b.x, b.y);
+    }
+
+    // Shadow scale based on height above floor
+    const heightAbove = (H - b.r) - b.y;
+    b.shadowScale = Math.max(0.2, 1 - heightAbove / (H * 0.9));
 
     // Trail
     b.trailX.push(b.x); b.trailY.push(b.y);
-    if(b.trailX.length>b.trailLen){b.trailX.shift();b.trailY.shift();}
+    if(b.trailX.length > b.trailLen){ b.trailX.shift(); b.trailY.shift(); }
   });
 
   // ── Ball-Ball collisions ──
@@ -576,10 +673,11 @@ function update(){
 
 function clamp(p){
   const m=p.size;
+  const groundY = H - 18 - m*1.5; // feet sit on the floor line
   if(p.x<m){p.x=m; p.vx=Math.abs(p.vx);}
   if(p.x>W-m){p.x=W-m; p.vx=-Math.abs(p.vx);}
   if(p.y<m){p.y=m; p.vy=Math.abs(p.vy);}
-  if(p.y>H-m){p.y=H-m; p.vy=-Math.abs(p.vy);}
+  if(p.y>groundY){p.y=groundY; p.vy=0;}
 }
 
 function crush(person, ball){
@@ -603,6 +701,21 @@ function addParticle(x,y,color,sMult=1){
 function wallSparks(x,y){
   for(let i=0;i<6;i++){
     particles.push({x,y,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5,color:'#ff8800',life:12,size:2});
+  }
+}
+
+function bounceFloorSparks(x, y, hue){
+  for(let i=0;i<12;i++){
+    const ang = -Math.PI + Math.random()*Math.PI; // upward fan
+    const spd = 1 + Math.random()*5;
+    particles.push({
+      x, y,
+      vx: Math.cos(ang)*spd,
+      vy: Math.sin(ang)*spd - 1,
+      color:`hsl(${hue},90%,65%)`,
+      life: 16+Math.random()*16,
+      size: 1.5+Math.random()*2.5
+    });
   }
 }
 
@@ -656,6 +769,35 @@ function draw(){
 
   // Corner accents
   drawCornerAccents();
+
+  // ── Floor ──
+  const floorGrad = ctx.createLinearGradient(0, H-18, 0, H);
+  floorGrad.addColorStop(0, 'rgba(255,34,68,0.18)');
+  floorGrad.addColorStop(1, 'rgba(255,34,68,0.04)');
+  ctx.fillStyle = floorGrad;
+  ctx.fillRect(0, H-18, W, 18);
+  ctx.strokeStyle='rgba(255,34,68,0.7)';
+  ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(0,H-18); ctx.lineTo(W,H-18); ctx.stroke();
+  // Floor tile marks
+  ctx.strokeStyle='rgba(255,34,68,0.12)'; ctx.lineWidth=1;
+  for(let x=0;x<W;x+=55){
+    ctx.beginPath(); ctx.moveTo(x,H-18); ctx.lineTo(x,H); ctx.stroke();
+  }
+
+  // ── Ball shadows on floor ──
+  balls.forEach(b=>{
+    const sx = b.x;
+    const sw = b.r * 2 * b.shadowScale;
+    const sh = b.r * 0.22 * b.shadowScale;
+    ctx.save();
+    ctx.globalAlpha = 0.35 * b.shadowScale;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(sx, H-10, sw*0.55, sh, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
 
   // Dead splatters
   const everyone=[...(player?[player]:[]),...npcs];
@@ -759,7 +901,8 @@ function drawCornerAccents(){
 
 function drawBall(b){
   ctx.save();
-  ctx.translate(b.x,b.y);
+  ctx.translate(b.x, b.y);
+  ctx.scale(b.squashX, b.squashY);   // squash-stretch
   ctx.rotate(b.rot);
 
   // Glow
@@ -938,14 +1081,16 @@ function drawPerson(p, isPlayer=false){
 
 function drawPlayerChar(){
   if(!player) return;
-  // Dash cooldown arc
-  if(player.dashCooldown>0){
-    const pct=1-player.dashCooldown/DASH_CD;
+  // Show a subtle glow ring when jump is ready (on ground)
+  const GROUND_Y = H - 18 - player.size*1.5;
+  const onGround = player.y >= GROUND_Y - 2;
+  if(onGround && !player.jumpHeld){
     ctx.save();
-    ctx.strokeStyle='rgba(0,229,255,0.5)';
-    ctx.lineWidth=2.5;
+    ctx.strokeStyle='rgba(0,229,255,0.35)';
+    ctx.lineWidth=2;
+    ctx.shadowColor='#00e5ff'; ctx.shadowBlur=8;
     ctx.beginPath();
-    ctx.arc(player.x,player.y-player.size*2.8,8,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);
+    ctx.arc(player.x, player.y+player.size*1.2, player.size*1.6, 0, Math.PI*2);
     ctx.stroke();
     ctx.restore();
   }
