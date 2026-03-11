@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUDOKU</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #16161a;
+    --surface2: #1e1e24;
+    --border: #2a2a35;
+    --border-bright: #3d3d52;
+    --accent: #e8c547;
+    --accent2: #4fc4cf;
+    --accent3: #e05c5c;
+    --text: #e8e8f0;
+    --text-muted: #6b6b80;
+    --text-dim: #3a3a50;
+    --given: #e8e8f0;
+    --player: #e8c547;
+    --note: #4fc4cf;
+    --wrong: #e05c5c;
+    --highlight-bg: #1e1e2e;
+    --highlight-match: #2d2d1a;
+    --highlight-select: #252530;
+    --cell-size: 56px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  /* Background grid decoration */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .everything { position: relative; z-index: 1; width: 100%; max-width: 900px; }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    letter-spacing: 8px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .logo span { color: var(--accent); }
+
+  .header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .timer {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 4px;
+    color: var(--accent);
+  }
+
+  .mistakes-display {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+  .mistake-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 1.5px solid var(--text-muted);
+    transition: all 0.3s ease;
+  }
+  .mistake-dot.filled {
+    background: var(--accent3);
+    border-color: var(--accent3);
+    box-shadow: 0 0 8px var(--accent3);
+  }
+  .mistakes-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+
+  /* LEVEL SELECTOR */
+  .level-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    align-items: center;
+  }
+  .level-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-right: 8px;
+  }
+  .level-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    padding: 7px 14px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .level-btn::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transition: transform 0.2s;
+  }
+  .level-btn:hover { color: var(--text); border-color: var(--border-bright); }
+  .level-btn.active {
+    background: var(--surface2);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .level-btn.active::after { transform: scaleX(1); }
+
+  /* MAIN LAYOUT */
+  .game-layout {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  /* BOARD */
+  .board-wrapper {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(9, var(--cell-size));
+    grid-template-rows: repeat(9, var(--cell-size));
+    border: 2px solid var(--text-dim);
+    position: relative;
+  }
+
+  .cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.15s;
+    user-select: none;
+    font-size: 22px;
+    font-weight: 500;
+  }
+
+  /* Box borders */
+  .cell:nth-child(3n+1):not(:nth-child(9n+1)) { border-left: 2px solid var(--border-bright); }
+  .cell[data-row="3"], .cell[data-row="6"] { border-top: 2px solid var(--border-bright); }
+
+  .cell.given { color: var(--given); font-weight: 400; cursor: default; }
+  .cell.player-filled { color: var(--player); }
+  .cell.wrong-fill { color: var(--accent3) !important; }
+  .cell.highlighted-row-col { background: var(--highlight-bg); }
+  .cell.highlighted-match { background: var(--highlight-match); }
+  .cell.selected { background: var(--highlight-select) !important; outline: 2px solid var(--accent); outline-offset: -2px; z-index: 2; }
+  .cell.given.selected { outline-color: var(--accent2); }
+  .cell:hover:not(.given) { background: var(--surface2); }
+
+  /* Notes grid */
+  .cell-notes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    width: 100%;
+    height: 100%;
+    padding: 2px;
+  }
+  .note-num {
+    font-size: 9px;
+    color: var(--note);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-weight: 300;
+    opacity: 0.8;
+  }
+
+  /* SHAKE animation for wrong */
+  @keyframes shake {
+    0%,100%{transform:translateX(0)}
+    20%{transform:translateX(-5px)}
+    40%{transform:translateX(5px)}
+    60%{transform:translateX(-4px)}
+    80%{transform:translateX(4px)}
+  }
+  .shake { animation: shake 0.4s ease; }
+
+  /* PULSE for correct */
+  @keyframes pulse-correct {
+    0%{transform:scale(1)}
+    50%{transform:scale(1.15)}
+    100%{transform:scale(1)}
+  }
+  .pulse-correct { animation: pulse-correct 0.3s ease; }
+
+  /* SIDEBAR */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 180px;
+    flex-shrink: 0;
+  }
+
+  .controls-section {}
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .num-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    padding: 10px 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+  }
+  .num-btn:hover {
+    background: var(--surface2);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .num-btn.active-num {
+    background: var(--surface2);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: inset 0 0 20px rgba(232,197,71,0.05);
+  }
+  .num-btn .count-badge {
+    position: absolute;
+    top: 3px; right: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 8px;
+    color: var(--text-dim);
+    line-height: 1;
+  }
+
+  .action-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .action-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 10px 12px;
+    cursor: pointer;
+    text-align: left;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .action-btn:hover {
+    background: var(--surface2);
+    border-color: var(--border-bright);
+    color: var(--text);
+  }
+  .action-btn.note-active {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+  .action-btn .icon { font-size: 14px; }
+
+  .new-game-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    padding: 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  .new-game-btn:hover {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  /* WIN OVERLAY */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s;
+    backdrop-filter: blur(4px);
+  }
+  .overlay.visible {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border-bright);
+    padding: 48px 56px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transform: scale(0.85);
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 420px;
+    width: 90%;
+  }
+  .overlay.visible .result-card { transform: scale(1); }
+
+  .result-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center top, rgba(232,197,71,0.08) 0%, transparent 70%);
+  }
+
+  .result-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 72px;
+    letter-spacing: 12px;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .win .result-title { color: var(--accent); }
+  .lose .result-title { color: var(--accent3); }
+
+  .result-subtitle {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 32px;
+  }
+
+  .result-stats {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-bottom: 36px;
+  }
+  .stat { text-align: center; }
+  .stat-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: var(--text);
+    letter-spacing: 2px;
+  }
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .result-btns {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+  .result-btn {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 3px;
+    padding: 12px 28px;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .result-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+  }
+  .result-btn.primary:hover { background: transparent; color: var(--accent); }
+  .result-btn.secondary {
+    background: transparent;
+    border-color: var(--border-bright);
+    color: var(--text-muted);
+  }
+  .result-btn.secondary:hover { border-color: var(--text); color: var(--text); }
+
+  /* WIN PARTICLES */
+  .particle {
+    position: fixed;
+    pointer-events: none;
+    z-index: 101;
+    border-radius: 2px;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* Board completion fill animation */
+  @keyframes cell-complete {
+    0% { background: var(--highlight-match); }
+    50% { background: rgba(232,197,71,0.15); }
+    100% { background: transparent; }
+  }
+
+  /* Number count indicator bar below board */
+  .number-status {
+    display: flex;
+    gap: 4px;
+    margin-top: 10px;
+  }
+  .num-status-item {
+    flex: 1;
+    text-align: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    color: var(--text-dim);
+    padding: 4px 0;
+    border-bottom: 2px solid var(--border);
+    transition: all 0.3s;
+  }
+  .num-status-item.complete {
+    color: var(--text-dim);
+    border-bottom-color: var(--text-dim);
+    opacity: 0.3;
+    text-decoration: line-through;
+  }
+
+  @media (max-width: 700px) {
+    :root { --cell-size: 38px; }
+    .game-layout { flex-direction: column; align-items: center; gap: 20px; }
+    .sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; }
+    .controls-section { flex: 1; min-width: 180px; }
+    .logo { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+<div class="everything">
+  <header>
+    <div class="logo">SU<span>DO</span>KU</div>
+    <div class="header-right">
+      <div class="timer" id="timer">00:00</div>
+      <div class="mistakes-display">
+        <span class="mistakes-label">Errors</span>
+        <div class="mistake-dot" id="dot-0"></div>
+        <div class="mistake-dot" id="dot-1"></div>
+        <div class="mistake-dot" id="dot-2"></div>
+        <div class="mistake-dot" id="dot-3"></div>
+        <div class="mistake-dot" id="dot-4"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="level-row">
+    <span class="level-label">Level</span>
+    <button class="level-btn active" data-level="1" onclick="selectLevel(1)">I — Easy</button>
+    <button class="level-btn" data-level="2" onclick="selectLevel(2)">II — Medium</button>
+    <button class="level-btn" data-level="3" onclick="selectLevel(3)">III — Hard</button>
+    <button class="level-btn" data-level="4" onclick="selectLevel(4)">IV — Expert</button>
+    <button class="level-btn" data-level="5" onclick="selectLevel(5)">V — Evil</button>
+  </div>
+
+  <div class="game-layout">
+    <div class="board-wrapper">
+      <div class="board" id="board"></div>
+      <div class="number-status" id="numberStatus"></div>
+    </div>
+
+    <div class="sidebar">
+      <div class="controls-section">
+        <div class="section-label">Numbers</div>
+        <div class="numpad" id="numpad"></div>
+      </div>
+
+      <div class="controls-section">
+        <div class="section-label">Actions</div>
+        <div class="action-btns">
+          <button class="action-btn" id="noteBtn" onclick="toggleNote()">
+            <span class="icon">✎</span> Notes
+          </button>
+          <button class="action-btn" onclick="eraseCell()">
+            <span class="icon">⌫</span> Erase
+          </button>
+          <button class="action-btn" onclick="undoMove()">
+            <span class="icon">↩</span> Undo
+          </button>
+        </div>
+      </div>
+
+      <div class="controls-section">
+        <button class="new-game-btn" onclick="newGame()">New Game</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Result Overlay -->
+<div class="overlay" id="overlay">
+  <div class="result-card" id="resultCard">
+    <div class="result-title" id="resultTitle">WIN</div>
+    <div class="result-subtitle" id="resultSubtitle">Puzzle Solved</div>
+    <div class="result-stats">
+      <div class="stat">
+        <div class="stat-val" id="statTime">—</div>
+        <div class="stat-label">Time</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="statErrors">—</div>
+        <div class="stat-label">Errors</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="statLevel">—</div>
+        <div class="stat-label">Level</div>
+      </div>
+    </div>
+    <div class="result-btns">
+      <button class="result-btn primary" onclick="newGame(); closeOverlay()">Play Again</button>
+      <button class="result-btn secondary" onclick="closeOverlay()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== SUDOKU ENGINE =====================
+
+function generateSolvedBoard() {
+  const board = Array.from({length:9}, () => Array(9).fill(0));
+  solveSudoku(board);
+  return board;
+}
+
+function solveSudoku(board) {
+  const empty = findEmpty(board);
+  if (!empty) return true;
+  const [r, c] = empty;
+  const nums = shuffle([1,2,3,4,5,6,7,8,9]);
+  for (const n of nums) {
+    if (isValid(board, r, c, n)) {
+      board[r][c] = n;
+      if (solveSudoku(board)) return true;
+      board[r][c] = 0;
+    }
+  }
+  return false;
+}
+
+function findEmpty(board) {
+  for (let r=0;r<9;r++) for (let c=0;c<9;c++) if (board[r][c]===0) return [r,c];
+  return null;
+}
+
+function isValid(board, row, col, num) {
+  for (let i=0;i<9;i++) {
+    if (board[row][i]===num) return false;
+    if (board[i][col]===num) return false;
+  }
+  const br=Math.floor(row/3)*3, bc=Math.floor(col/3)*3;
+  for (let r=br;r<br+3;r++) for (let c=bc;c<bc+3;c++) if(board[r][c]===num) return false;
+  return true;
+}
+
+function shuffle(arr) {
+  for (let i=arr.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+  return arr;
+}
+
+// Cells to remove per level
+const REMOVE_COUNTS = {1:30, 2:40, 3:48, 4:54, 5:58};
+
+function createPuzzle(level) {
+  const solved = generateSolvedBoard();
+  const puzzle = solved.map(r=>[...r]);
+  const toRemove = REMOVE_COUNTS[level];
+  const cells = shuffle([...Array(81).keys()]);
+  let removed = 0;
+  for (const idx of cells) {
+    if (removed >= toRemove) break;
+    const r=Math.floor(idx/9), c=idx%9;
+    const backup = puzzle[r][c];
+    puzzle[r][c] = 0;
+    // For lower levels just remove — for higher levels could verify uniqueness but skip for perf
+    removed++;
+  }
+  return { puzzle, solved };
+}
+
+// ===================== GAME STATE =====================
+let state = {
+  puzzle: null,      // 9x9 original (0=empty)
+  solved: null,      // 9x9 solution
+  board: null,       // 9x9 current values
+  notes: null,       // 9x9 Set of notes
+  given: null,       // 9x9 bool
+  selected: null,    // [r,c]
+  noteMode: false,
+  mistakes: 0,
+  maxMistakes: 5,
+  history: [],
+  level: 1,
+  timerVal: 0,
+  timerInterval: null,
+  gameOver: false,
+  won: false,
+};
+
+function selectLevel(l) {
+  state.level = l;
+  document.querySelectorAll('.level-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.level)===l));
+  newGame();
+}
+
+function newGame() {
+  clearInterval(state.timerInterval);
+  const { puzzle, solved } = createPuzzle(state.level);
+  state.puzzle = puzzle;
+  state.solved = solved;
+  state.board = puzzle.map(r=>[...r]);
+  state.notes = Array.from({length:9},()=>Array.from({length:9},()=>new Set()));
+  state.given = puzzle.map(r=>r.map(v=>v!==0));
+  state.selected = null;
+  state.noteMode = false;
+  state.mistakes = 0;
+  state.history = [];
+  state.timerVal = 0;
+  state.gameOver = false;
+  state.won = false;
+  updateMistakeDots();
+  document.getElementById('noteBtn').classList.remove('note-active');
+  renderBoard();
+  renderNumpad();
+  renderNumberStatus();
+  startTimer();
+}
+
+function startTimer() {
+  clearInterval(state.timerInterval);
+  state.timerVal = 0;
+  updateTimerDisplay();
+  state.timerInterval = setInterval(()=>{
+    if (state.gameOver) return;
+    state.timerVal++;
+    updateTimerDisplay();
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(state.timerVal/60).toString().padStart(2,'0');
+  const s = (state.timerVal%60).toString().padStart(2,'0');
+  document.getElementById('timer').textContent = m+':'+s;
+}
+
+// ===================== RENDER =====================
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  for (let r=0;r<9;r++) {
+    for (let c=0;c<9;c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      if (state.given[r][c]) cell.classList.add('given');
+      setCellContent(cell, r, c);
+      applyCellHighlight(cell, r, c);
+      cell.addEventListener('click', ()=>selectCell(r,c));
+      board.appendChild(cell);
+    }
+  }
+}
+
+function setCellContent(cell, r, c) {
+  const val = state.board[r][c];
+  const notes = state.notes[r][c];
+  cell.innerHTML = '';
+  if (val !== 0) {
+    cell.textContent = val;
+    if (!state.given[r][c]) {
+      if (state.solved[r][c] !== val) {
+        cell.classList.add('wrong-fill');
+      } else {
+        cell.classList.remove('wrong-fill');
+        cell.classList.add('player-filled');
+      }
+    }
+  } else if (notes.size > 0) {
+    const grid = document.createElement('div');
+    grid.className = 'cell-notes';
+    for (let n=1;n<=9;n++) {
+      const nd = document.createElement('div');
+      nd.className = 'note-num';
+      nd.textContent = notes.has(n) ? n : '';
+      grid.appendChild(nd);
+    }
+    cell.appendChild(grid);
+  }
+}
+
+function applyCellHighlight(cell, r, c) {
+  cell.classList.remove('highlighted-row-col','highlighted-match','selected');
+  if (!state.selected) return;
+  const [sr, sc] = state.selected;
+  const selVal = state.board[sr][sc];
+  if (r===sr && c===sc) { cell.classList.add('selected'); return; }
+  // Same box
+  const sameBox = Math.floor(r/3)===Math.floor(sr/3) && Math.floor(c/3)===Math.floor(sc/3);
+  if (r===sr || c===sc || sameBox) cell.classList.add('highlighted-row-col');
+  if (selVal!==0 && state.board[r][c]===selVal) cell.classList.add('highlighted-match');
+}
+
+function getCell(r,c) {
+  return document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+}
+
+function refreshAllHighlights() {
+  for (let r=0;r<9;r++) for (let c=0;c<9;c++) {
+    const cell = getCell(r,c);
+    if (cell) applyCellHighlight(cell,r,c);
+  }
+}
+
+function renderNumpad() {
+  const np = document.getElementById('numpad');
+  np.innerHTML = '';
+  for (let n=1;n<=9;n++) {
+    const btn = document.createElement('button');
+    btn.className = 'num-btn';
+    btn.dataset.num = n;
+    btn.innerHTML = n + `<span class="count-badge">${countRemaining(n)}</span>`;
+    btn.onclick = () => inputNumber(n);
+    np.appendChild(btn);
+  }
+}
+
+function countRemaining(n) {
+  let count = 0;
+  for (let r=0;r<9;r++) for (let c=0;c<9;c++) if(state.board[r][c]===n) count++;
+  return Math.max(0, 9-count);
+}
+
+function renderNumberStatus() {
+  const ns = document.getElementById('numberStatus');
+  ns.innerHTML = '';
+  for (let n=1;n<=9;n++) {
+    const item = document.createElement('div');
+    item.className = 'num-status-item';
+    item.dataset.statusNum = n;
+    item.textContent = n;
+    if (countRemaining(n)===0) item.classList.add('complete');
+    ns.appendChild(item);
+  }
+}
+
+function updateMistakeDots() {
+  for (let i=0;i<5;i++) {
+    const dot = document.getElementById('dot-'+i);
+    dot.classList.toggle('filled', i < state.mistakes);
+  }
+}
+
+// ===================== INTERACTION =====================
+function selectCell(r, c) {
+  if (state.gameOver) return;
+  state.selected = [r, c];
+  refreshAllHighlights();
+  // highlight selected
+  const cell = getCell(r,c);
+  if (cell) cell.classList.add('selected');
+  // update numpad active
+  const val = state.board[r][c];
+  document.querySelectorAll('.num-btn').forEach(b => {
+    b.classList.toggle('active-num', parseInt(b.dataset.num)===val && val!==0);
+  });
+}
+
+function inputNumber(n) {
+  if (state.gameOver || !state.selected) return;
+  const [r,c] = state.selected;
+  if (state.given[r][c]) return;
+
+  if (state.noteMode) {
+    // Toggle note
+    const notes = state.notes[r][c];
+    if (state.board[r][c] !== 0) return; // can't note a filled cell
+    state.history.push({type:'note', r, c, notesBefore: new Set(notes)});
+    if (notes.has(n)) notes.delete(n); else notes.add(n);
+    const cell = getCell(r,c);
+    setCellContent(cell,r,c);
+    return;
+  }
+
+  // Regular input
+  const prevVal = state.board[r][c];
+  const prevNotes = new Set(state.notes[r][c]);
+  state.history.push({type:'fill', r, c, prevVal, prevNotes});
+
+  if (state.board[r][c] === n) {
+    // Deselect same number = erase
+    state.board[r][c] = 0;
+  } else {
+    state.board[r][c] = n;
+    if (state.solved[r][c] !== n) {
+      // Wrong move
+      state.mistakes++;
+      updateMistakeDots();
+      const cell = getCell(r,c);
+      cell.classList.add('shake');
+      setTimeout(()=>cell.classList.remove('shake'), 400);
+      if (state.mistakes > state.maxMistakes) {
+        state.board[r][c] = n;
+        const cellEl = getCell(r,c);
+        setCellContent(cellEl, r, c);
+        applyCellHighlight(cellEl, r, c);
+        endGame(false);
+        return;
+      }
+    } else {
+      // Correct — clear notes in same row/col/box
+      clearRelatedNotes(r, c, n);
+      const cell = getCell(r,c);
+      cell.classList.add('pulse-correct');
+      setTimeout(()=>cell.classList.remove('pulse-correct'), 300);
+    }
+  }
+
+  const cell = getCell(r,c);
+  setCellContent(cell, r, c);
+  refreshAllHighlights();
+  cell.classList.add('selected');
+  renderNumpad();
+  renderNumberStatus();
+
+  // Check win
+  if (checkWin()) {
+    endGame(true);
+  }
+}
+
+function clearRelatedNotes(r, c, n) {
+  for (let i=0;i<9;i++) {
+    state.notes[r][i].delete(n);
+    state.notes[i][c].delete(n);
+  }
+  const br=Math.floor(r/3)*3, bc=Math.floor(c/3)*3;
+  for (let rr=br;rr<br+3;rr++) for (let cc=bc;cc<bc+3;cc++) state.notes[rr][cc].delete(n);
+  // re-render affected cells
+  for (let i=0;i<9;i++) {
+    if(state.board[r][i]===0) { const cell=getCell(r,i); if(cell) setCellContent(cell,r,i); }
+    if(state.board[i][c]===0) { const cell=getCell(i,c); if(cell) setCellContent(cell,i,c); }
+  }
+  for (let rr=br;rr<br+3;rr++) for (let cc=bc;cc<bc+3;cc++) {
+    if(state.board[rr][cc]===0) { const cell=getCell(rr,cc); if(cell) setCellContent(cell,rr,cc); }
+  }
+}
+
+function eraseCell() {
+  if (state.gameOver || !state.selected) return;
+  const [r,c] = state.selected;
+  if (state.given[r][c]) return;
+  const prevVal = state.board[r][c];
+  const prevNotes = new Set(state.notes[r][c]);
+  state.history.push({type:'fill', r, c, prevVal, prevNotes});
+  state.board[r][c] = 0;
+  state.notes[r][c].clear();
+  const cell = getCell(r,c);
+  setCellContent(cell,r,c);
+  refreshAllHighlights();
+  cell.classList.add('selected');
+  renderNumpad();
+  renderNumberStatus();
+}
+
+function undoMove() {
+  if (!state.history.length || state.gameOver) return;
+  const last = state.history.pop();
+  if (last.type === 'fill') {
+    state.board[last.r][last.c] = last.prevVal;
+    state.notes[last.r][last.c] = last.prevNotes;
+  } else {
+    state.notes[last.r][last.c] = last.notesBefore;
+  }
+  const cell = getCell(last.r, last.c);
+  setCellContent(cell, last.r, last.c);
+  refreshAllHighlights();
+  if (state.selected) { const [r,c]=state.selected; const sc=getCell(r,c); if(sc) sc.classList.add('selected'); }
+  renderNumpad();
+  renderNumberStatus();
+}
+
+function toggleNote() {
+  state.noteMode = !state.noteMode;
+  document.getElementById('noteBtn').classList.toggle('note-active', state.noteMode);
+}
+
+function checkWin() {
+  for (let r=0;r<9;r++) for (let c=0;c<9;c++) if(state.board[r][c]!==state.solved[r][c]) return false;
+  return true;
+}
+
+// ===================== END GAME =====================
+function endGame(won) {
+  state.gameOver = true;
+  state.won = won;
+  clearInterval(state.timerInterval);
+
+  const overlay = document.getElementById('overlay');
+  const card = document.getElementById('resultCard');
+  card.className = 'result-card ' + (won ? 'win' : 'lose');
+
+  document.getElementById('resultTitle').textContent = won ? 'SOLVED' : 'GAME OVER';
+  document.getElementById('resultSubtitle').textContent = won ? 'Puzzle Complete!' : 'Too many mistakes';
+
+  const m = Math.floor(state.timerVal/60).toString().padStart(2,'0');
+  const s = (state.timerVal%60).toString().padStart(2,'0');
+  document.getElementById('statTime').textContent = m+':'+s;
+  document.getElementById('statErrors').textContent = state.mistakes + '/5';
+  document.getElementById('statLevel').textContent = 'LVL '+state.level;
+
+  if (won) {
+    // Wave animation across board
+    animateWin();
+    spawnParticles();
+  }
+
+  setTimeout(()=>{ overlay.classList.add('visible'); }, won ? 1800 : 500);
+}
+
+function animateWin() {
+  for (let r=0;r<9;r++) for (let c=0;c<9;c++) {
+    const cell = getCell(r,c);
+    if (!cell) continue;
+    const delay = (r+c)*60;
+    setTimeout(()=>{
+      cell.style.animation = 'cell-complete 0.6s ease forwards';
+      setTimeout(()=>{ cell.style.animation=''; }, 600);
+    }, delay);
+  }
+}
+
+function spawnParticles() {
+  const colors = ['#e8c547','#4fc4cf','#e05c5c','#a8e6cf','#ffeaa7','#fd79a8'];
+  for (let i=0;i<80;i++) {
+    setTimeout(()=>{
+      const p = document.createElement('div');
+      p.className = 'particle';
+      const size = Math.random()*8+4;
+      p.style.cssText = `
+        width:${size}px; height:${size}px;
+        background:${colors[Math.floor(Math.random()*colors.length)]};
+        left:${Math.random()*100}vw;
+        top:-20px;
+        animation-duration:${Math.random()*2+2}s;
+        animation-delay:${Math.random()*0.5}s;
+        transform:rotate(${Math.random()*360}deg);
+        border-radius:${Math.random()>0.5?'50%':'2px'};
+      `;
+      document.body.appendChild(p);
+      setTimeout(()=>p.remove(), 4000);
+    }, i*30);
+  }
+}
+
+function closeOverlay() {
+  document.getElementById('overlay').classList.remove('visible');
+}
+
+// ===================== KEYBOARD =====================
+document.addEventListener('keydown', e => {
+  if (state.gameOver) return;
+  if (e.key >= '1' && e.key <= '9') { inputNumber(parseInt(e.key)); return; }
+  if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') { eraseCell(); return; }
+  if (e.key === 'n' || e.key === 'N') { toggleNote(); return; }
+  if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undoMove(); return; }
+  // Arrow navigation
+  if (!state.selected) { state.selected=[0,0]; selectCell(0,0); return; }
+  const [r,c] = state.selected;
+  const dirs = {ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+  if (dirs[e.key]) {
+    e.preventDefault();
+    const [dr,dc] = dirs[e.key];
+    const nr = Math.max(0,Math.min(8,r+dr));
+    const nc = Math.max(0,Math.min(8,c+dc));
+    selectCell(nr,nc);
+  }
+});
+
+// ===================== INIT =====================
+newGame();
+</script>
+</body>
+</html>
