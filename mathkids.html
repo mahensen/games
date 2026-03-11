@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MathLand 🌟 Learn & Play!</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap');
+
+  :root {
+    --sky: #6EC6F5; --sun: #FFD93D; --grass: #6BCB77;
+    --pink: #FF6B9D; --purple: #A855F7; --orange: #FF8C42; --red: #EF4444;
+    --dark: #1e1b4b; --card: rgba(255,255,255,0.97); --shadow: 0 8px 32px rgba(30,27,75,0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: linear-gradient(180deg, #87CEEB 0%, #B8E4F7 40%, #90EE90 70%, #6BCB77 100%);
+    min-height: 100vh; overflow-x: hidden; position: relative;
+  }
+  .clouds { position: fixed; top: 0; left: 0; width: 100%; height: 200px; pointer-events: none; z-index: 0; }
+  .cloud { position: absolute; background: white; border-radius: 50px; opacity: 0.85; animation: floatCloud linear infinite; }
+  .cloud::before, .cloud::after { content: ''; position: absolute; background: white; border-radius: 50%; }
+  .cloud:nth-child(1) { width: 120px; height: 40px; top: 30px; animation-duration: 25s; }
+  .cloud:nth-child(1)::before { width: 60px; height: 60px; top: -30px; left: 15px; }
+  .cloud:nth-child(1)::after { width: 40px; height: 40px; top: -20px; right: 20px; }
+  .cloud:nth-child(2) { width: 90px; height: 30px; top: 70px; animation-duration: 35s; animation-delay: -10s; opacity: 0.7; }
+  .cloud:nth-child(2)::before { width: 45px; height: 45px; top: -22px; left: 10px; }
+  .cloud:nth-child(2)::after { width: 30px; height: 30px; top: -15px; right: 10px; }
+  .cloud:nth-child(3) { width: 150px; height: 45px; top: 20px; animation-duration: 40s; animation-delay: -20s; }
+  .cloud:nth-child(3)::before { width: 70px; height: 70px; top: -35px; left: 20px; }
+  .cloud:nth-child(3)::after { width: 50px; height: 50px; top: -25px; right: 25px; }
+  @keyframes floatCloud { from { transform: translateX(-200px); } to { transform: translateX(calc(100vw + 200px)); } }
+
+  .sun {
+    position: fixed; top: 20px; right: 40px; width: 70px; height: 70px;
+    background: var(--sun); border-radius: 50%;
+    box-shadow: 0 0 30px rgba(255,217,61,0.6), 0 0 60px rgba(255,217,61,0.3);
+    animation: sunPulse 3s ease-in-out infinite; z-index: 1;
+  }
+  .sun::before { content: '☀️'; font-size: 50px; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  @keyframes sunPulse {
+    0%,100% { box-shadow: 0 0 30px rgba(255,217,61,0.6), 0 0 60px rgba(255,217,61,0.3); }
+    50% { box-shadow: 0 0 50px rgba(255,217,61,0.8), 0 0 100px rgba(255,217,61,0.4); }
+  }
+  .star { position: fixed; font-size: 20px; animation: starFloat 4s ease-in-out infinite; pointer-events: none; z-index: 0; }
+  @keyframes starFloat {
+    0%,100% { transform: translateY(0) rotate(0deg); opacity: 0.6; }
+    50% { transform: translateY(-15px) rotate(20deg); opacity: 1; }
+  }
+
+  #app { position: relative; z-index: 10; max-width: 860px; margin: 0 auto; padding: 20px; min-height: 100vh; }
+
+  .header { text-align: center; padding: 30px 20px 20px; }
+  .logo {
+    font-family: 'Fredoka One', cursive; font-size: clamp(2.5rem, 6vw, 4rem); color: white;
+    text-shadow: 4px 4px 0 var(--purple), 6px 6px 0 rgba(0,0,0,0.1); letter-spacing: 2px;
+    animation: logoWiggle 3s ease-in-out infinite;
+  }
+  @keyframes logoWiggle { 0%,100% { transform: rotate(-1deg); } 50% { transform: rotate(1deg); } }
+  .tagline { font-size: 1.1rem; color: white; font-weight: 700; text-shadow: 1px 1px 3px rgba(0,0,0,0.2); margin-top: 5px; }
+
+  .card {
+    background: var(--card); border-radius: 28px; padding: 32px;
+    box-shadow: var(--shadow), 0 2px 0 rgba(0,0,0,0.06); border: 3px solid rgba(255,255,255,0.8);
+    animation: cardIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes cardIn { from { transform: scale(0.85) translateY(20px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+
+  .welcome-emoji { font-size: 80px; text-align: center; margin-bottom: 10px; animation: bounce 1s ease-in-out infinite alternate; }
+  @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-10px); } }
+  .welcome-title { font-family: 'Fredoka One', cursive; font-size: 2.2rem; color: var(--dark); text-align: center; margin-bottom: 8px; }
+  .welcome-sub { text-align: center; color: #6b7280; font-size: 1.05rem; font-weight: 600; margin-bottom: 28px; }
+
+  .input-group { margin-bottom: 20px; }
+  .input-group label { display: block; font-weight: 800; color: var(--dark); font-size: 1rem; margin-bottom: 8px; }
+  .input-group input {
+    width: 100%; padding: 14px 20px; border-radius: 16px; border: 3px solid #e5e7eb;
+    font-family: 'Nunito', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--dark); outline: none; transition: border-color 0.2s;
+  }
+  .input-group input:focus { border-color: var(--purple); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 16px 32px; border-radius: 16px; border: none;
+    font-family: 'Nunito', sans-serif; font-size: 1.1rem; font-weight: 800;
+    cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .btn:hover { transform: translateY(-3px); }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: linear-gradient(135deg, var(--purple), #7c3aed); color: white; box-shadow: 0 6px 0 #5b21b6; width: 100%; }
+  .btn-primary:hover { box-shadow: 0 8px 0 #5b21b6; }
+  .btn-primary:active { box-shadow: 0 2px 0 #5b21b6; }
+  .btn-success { background: linear-gradient(135deg, var(--grass), #16a34a); color: white; box-shadow: 0 6px 0 #15803d; width: 100%; }
+  .btn-success:hover { box-shadow: 0 8px 0 #15803d; }
+  .btn-orange { background: linear-gradient(135deg, var(--orange), #ea580c); color: white; box-shadow: 0 6px 0 #c2410c; width: 100%; }
+  .btn-orange:hover { box-shadow: 0 8px 0 #c2410c; }
+  .btn-sky { background: linear-gradient(135deg, #38bdf8, #0284c7); color: white; box-shadow: 0 6px 0 #0369a1; width: 100%; }
+  .btn-sky:hover { box-shadow: 0 8px 0 #0369a1; }
+  .btn-sm { padding: 10px 20px; font-size: 0.9rem; border-radius: 12px; width: auto; }
+  .btn-ghost { background: #f3f4f6; color: #374151; box-shadow: 0 4px 0 #d1d5db; border: 2px solid #e5e7eb; width: auto; }
+  .btn-ghost:hover { box-shadow: 0 6px 0 #d1d5db; background: #e5e7eb; }
+
+  .topics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+  .topic-pill {
+    padding: 20px 16px; border-radius: 20px; border: none; cursor: pointer;
+    font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.05rem; color: white;
+    text-align: center; transition: transform 0.15s, box-shadow 0.15s, outline 0.1s;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .topic-pill span.icon { font-size: 2rem; }
+  .topic-pill:hover { transform: translateY(-4px); }
+  .topic-pill.add { background: linear-gradient(135deg, #3b82f6, #1d4ed8); box-shadow: 0 5px 0 #1e40af; }
+  .topic-pill.sub { background: linear-gradient(135deg, var(--pink), #db2777); box-shadow: 0 5px 0 #9d174d; }
+  .topic-pill.mul { background: linear-gradient(135deg, var(--orange), #ea580c); box-shadow: 0 5px 0 #c2410c; }
+  .topic-pill.div { background: linear-gradient(135deg, var(--grass), #15803d); box-shadow: 0 5px 0 #166534; }
+  .topic-pill.selected { outline: 4px solid var(--sun); outline-offset: 3px; transform: translateY(-4px); }
+
+  /* Level cards */
+  .level-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+  .level-card {
+    padding: 20px 14px; border-radius: 20px; border: 3px solid #e5e7eb; cursor: pointer;
+    font-family: 'Nunito', sans-serif; font-weight: 800;
+    text-align: center; transition: all 0.15s; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    background: white; color: var(--dark); box-shadow: 0 4px 0 #e5e7eb;
+  }
+  .level-card .lv-icon { font-size: 2.2rem; }
+  .level-card .lv-name { font-family: 'Fredoka One', cursive; font-size: 1.15rem; }
+  .level-card .lv-desc { font-size: 0.78rem; color: #6b7280; font-weight: 600; line-height: 1.4; }
+  .level-card:hover { transform: translateY(-3px); }
+  .level-card.beginner.selected     { background: #f0fdf4; border-color: #22c55e; box-shadow: 0 5px 0 #86efac; outline: 3px solid #22c55e; outline-offset: 2px; }
+  .level-card.intermediate.selected { background: #f0f9ff; border-color: #0ea5e9; box-shadow: 0 5px 0 #7dd3fc; outline: 3px solid #0ea5e9; outline-offset: 2px; }
+  .level-card.advanced.selected     { background: #faf5ff; border-color: #a855f7; box-shadow: 0 5px 0 #c4b5fd; outline: 3px solid #a855f7; outline-offset: 2px; }
+  .level-card.expert.selected       { background: #fff1f2; border-color: #ef4444; box-shadow: 0 5px 0 #fca5a5; outline: 3px solid #ef4444; outline-offset: 2px; }
+
+  .level-badge {
+    display: inline-block; padding: 4px 14px; border-radius: 99px;
+    font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;
+  }
+  .level-badge.beginner     { background: #dcfce7; color: #166534; }
+  .level-badge.intermediate { background: #e0f2fe; color: #0369a1; }
+  .level-badge.advanced     { background: #f3e8ff; color: #7e22ce; }
+  .level-badge.expert       { background: #fee2e2; color: #991b1b; }
+
+  .progress-bar-wrap { background: #e5e7eb; border-radius: 99px; height: 14px; overflow: hidden; margin-bottom: 6px; }
+  .progress-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--purple), var(--pink)); transition: width 0.5s ease; }
+  .progress-label { font-size: 0.85rem; font-weight: 700; color: #6b7280; text-align: right; }
+
+  .question-box {
+    background: linear-gradient(135deg, #f5f3ff, #ede9fe); border-radius: 20px;
+    padding: 32px; text-align: center; margin-bottom: 24px; border: 3px solid #c4b5fd;
+  }
+  .question-label { font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: var(--purple); margin-bottom: 12px; }
+  .question-text { font-family: 'Fredoka One', cursive; font-size: clamp(2rem, 6vw, 3.5rem); color: var(--dark); margin-bottom: 8px; }
+  .question-hint { font-size: 0.9rem; color: #9ca3af; font-weight: 600; }
+
+  .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .option-btn {
+    padding: 20px; border-radius: 16px; border: 3px solid #e5e7eb;
+    background: white; font-family: 'Fredoka One', cursive; font-size: 1.8rem; color: var(--dark);
+    cursor: pointer; transition: all 0.15s; box-shadow: 0 4px 0 #e5e7eb;
+  }
+  .option-btn:hover:not(:disabled) { border-color: var(--purple); transform: translateY(-2px); box-shadow: 0 6px 0 #c4b5fd; }
+  .option-btn.correct { border-color: var(--grass); background: #f0fdf4; color: #166534; box-shadow: 0 4px 0 #86efac; }
+  .option-btn.wrong   { border-color: var(--red); background: #fef2f2; color: #991b1b; box-shadow: 0 4px 0 #fca5a5; }
+  .option-btn:disabled { cursor: default; }
+
+  .feedback {
+    text-align: center; font-size: 1.3rem; font-weight: 800; padding: 16px;
+    border-radius: 16px; margin-bottom: 16px; animation: feedbackPop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes feedbackPop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .feedback.correct { background: #f0fdf4; color: #166534; border: 2px solid #86efac; }
+  .feedback.wrong   { background: #fef2f2; color: #991b1b; border: 2px solid #fca5a5; }
+
+  .score-big {
+    font-family: 'Fredoka One', cursive; font-size: 5rem; text-align: center;
+    background: linear-gradient(135deg, var(--purple), var(--pink));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; margin: 16px 0;
+  }
+  .score-stars { text-align: center; font-size: 2.5rem; margin-bottom: 16px; letter-spacing: 4px; }
+
+  .lesson-section { background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-radius: 20px; padding: 24px; margin-bottom: 20px; border: 3px solid #86efac; }
+  .lesson-section h3 { font-family: 'Fredoka One', cursive; font-size: 1.4rem; color: #166534; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .lesson-section p { color: #374151; font-weight: 600; line-height: 1.7; font-size: 1rem; }
+  .example-box { background: white; border-radius: 14px; padding: 16px 20px; margin-top: 14px; border: 2px solid #86efac; font-family: 'Fredoka One', cursive; font-size: 1.4rem; text-align: center; color: var(--dark); }
+  .example-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; margin: 6px 0; }
+
+  .ai-lesson { background: linear-gradient(135deg, #fef9c3, #fef08a); border-radius: 20px; padding: 24px; margin-bottom: 20px; border: 3px solid #fde047; }
+  .ai-lesson h3 { font-family: 'Fredoka One', cursive; font-size: 1.3rem; color: #713f12; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .ai-lesson-content { color: #422006; font-weight: 600; line-height: 1.8; font-size: 1rem; white-space: pre-wrap; }
+  .loading-dots { display: inline-flex; gap: 6px; align-items: center; }
+  .loading-dots span { width: 10px; height: 10px; background: #713f12; border-radius: 50%; animation: dotBounce 0.8s ease-in-out infinite; }
+  .loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes dotBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+  .result-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-radius: 12px; margin-bottom: 8px; font-weight: 700; gap: 8px; }
+  .result-row.correct { background: #f0fdf4; color: #166534; }
+  .result-row.wrong   { background: #fef2f2; color: #991b1b; }
+  .result-row .q { font-family: 'Fredoka One', cursive; font-size: 1rem; flex: 1; }
+  .result-row .status { font-size: 1.4rem; flex-shrink: 0; }
+
+  .player-info {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 20px;
+    background: rgba(255,255,255,0.25); backdrop-filter: blur(10px); border-radius: 20px;
+    padding: 12px 20px; border: 2px solid rgba(255,255,255,0.4);
+  }
+  .kid-avatar { width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, var(--sun), var(--orange)); display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); flex-shrink: 0; }
+  .player-name { font-family: 'Fredoka One', cursive; font-size: 1.3rem; color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.15); }
+  .player-stars { font-size: 1rem; color: var(--sun); font-weight: 700; }
+  .ml-auto { margin-left: auto; }
+
+  .section-title { font-family: 'Fredoka One', cursive; font-size: 1.6rem; color: var(--dark); margin-bottom: 6px; }
+  .section-sub { color: #6b7280; font-weight: 600; margin-bottom: 24px; font-size: 0.95rem; }
+
+  /* Home action cards */
+  .home-actions { display: flex; flex-direction: column; gap: 14px; }
+  .action-card {
+    display: flex; align-items: center; gap: 16px; padding: 18px 22px; border-radius: 20px;
+    border: none; cursor: pointer; font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.05rem;
+    color: white; text-align: left; transition: transform 0.15s, box-shadow 0.15s; width: 100%;
+  }
+  .action-card:hover { transform: translateY(-3px); }
+  .action-card:active { transform: translateY(1px); }
+  .action-card .ac-icon { font-size: 2.2rem; flex-shrink: 0; }
+  .action-card .ac-text { display: flex; flex-direction: column; gap: 2px; }
+  .action-card .ac-title { font-family: 'Fredoka One', cursive; font-size: 1.2rem; }
+  .action-card .ac-sub { font-size: 0.82rem; font-weight: 600; opacity: 0.85; }
+  .ac-test     { background: linear-gradient(135deg, var(--purple), #7c3aed); box-shadow: 0 6px 0 #5b21b6; }
+  .ac-lesson   { background: linear-gradient(135deg, var(--orange), #ea580c); box-shadow: 0 6px 0 #c2410c; }
+  .ac-progress { background: linear-gradient(135deg, var(--grass), #15803d); box-shadow: 0 6px 0 #166534; }
+  .ac-change   { background: linear-gradient(135deg, #38bdf8, #0284c7); box-shadow: 0 6px 0 #0369a1; }
+
+  .returning-banner {
+    background: linear-gradient(135deg, #fef9c3, #fef08a); border-radius: 16px;
+    padding: 14px 18px; border: 2px solid #fde047; margin-bottom: 20px;
+    font-weight: 700; color: #713f12; font-size: 0.95rem; display: flex; align-items: center; gap: 10px;
+  }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .stat-card { border-radius: 16px; padding: 16px; text-align: center; }
+  .stat-card .stat-num { font-family: 'Fredoka One', cursive; font-size: 2rem; }
+  .stat-card .stat-lbl { font-weight: 700; font-size: 0.85rem; color: #374151; }
+
+  .confetti-piece { position: fixed; border-radius: 2px; animation: confettiFall linear forwards; pointer-events: none; z-index: 9999; }
+  @keyframes confettiFall { 0% { transform: translateY(-20px) rotate(0deg); opacity: 1; } 100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
+
+  @media (max-width: 480px) {
+    .card { padding: 20px; }
+    .topics-grid, .level-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .options-grid { grid-template-columns: 1fr 1fr; }
+    .question-text { font-size: 2rem; }
+    .score-big { font-size: 3.5rem; }
+    .action-card .ac-sub { display: none; }
+    .player-info { padding: 10px 14px; gap: 10px; }
+    .player-name { font-size: 1.1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="clouds"><div class="cloud"></div><div class="cloud"></div><div class="cloud"></div></div>
+<div class="sun"></div>
+<div class="star" style="top:15%;left:5%;animation-delay:0s;">⭐</div>
+<div class="star" style="top:25%;right:8%;animation-delay:1s;">🌟</div>
+<div class="star" style="top:60%;left:3%;animation-delay:2s;">✨</div>
+<div class="star" style="top:75%;right:5%;animation-delay:0.5s;">⭐</div>
+
+<div id="app">
+  <div class="header">
+    <div class="logo">🧮 MathLand!</div>
+    <div class="tagline">Where numbers come alive! 🚀</div>
+  </div>
+
+  <!-- ══ WELCOME ══ -->
+  <div id="screen-welcome" class="card" style="display:none;">
+    <div class="welcome-emoji">🎉</div>
+    <div class="welcome-title">Welcome, Superstar!</div>
+    <div class="welcome-sub">Let's go on a math adventure together!</div>
+    <div class="input-group">
+      <label>What's your name? 😊</label>
+      <input type="text" id="player-name" placeholder="Type your name here..." maxlength="20"
+        onkeydown="if(event.key==='Enter')startJourney()">
+    </div>
+    <div class="input-group">
+      <label>What would you like to learn? 📚</label>
+      <div class="topics-grid">
+        <button class="topic-pill add"  onclick="toggleTopic('addition',this)"><span class="icon">➕</span>Addition</button>
+        <button class="topic-pill sub"  onclick="toggleTopic('subtraction',this)"><span class="icon">➖</span>Subtraction</button>
+        <button class="topic-pill mul"  onclick="toggleTopic('multiplication',this)"><span class="icon">✖️</span>Multiplication</button>
+        <button class="topic-pill div"  onclick="toggleTopic('division',this)"><span class="icon">➗</span>Division</button>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="startJourney()">🚀 Start My Adventure!</button>
+  </div>
+
+  <!-- ══ LOGGED-IN WRAPPER ══ -->
+  <div id="screen-player" style="display:none;">
+    <div class="player-info">
+      <div class="kid-avatar">🧒</div>
+      <div>
+        <div class="player-name" id="display-name">Alex!</div>
+        <div class="player-stars" id="display-stars">⭐ 0 stars</div>
+      </div>
+      <div class="ml-auto">
+        <button class="btn btn-sm btn-ghost" onclick="goHome()">🏠 Home</button>
+      </div>
+    </div>
+
+    <!-- HOME -->
+    <div id="screen-home" class="card" style="display:none;">
+      <div id="returning-banner" class="returning-banner" style="display:none;">
+        👋 <span id="returning-msg"></span>
+      </div>
+      <div class="section-title" id="home-greeting">What do you want to do? 🤔</div>
+      <div class="section-sub">Choose your activity below!</div>
+      <div class="home-actions">
+        <button class="action-card ac-test" onclick="showLevelSelect('quick')">
+          <span class="ac-icon">📝</span>
+          <div class="ac-text"><div class="ac-title">Take a Test</div><div class="ac-sub">Pick your level and test your skills!</div></div>
+        </button>
+        <button class="action-card ac-lesson" onclick="showLessons()">
+          <span class="ac-icon">📖</span>
+          <div class="ac-text"><div class="ac-title">Go to Lessons</div><div class="ac-sub">Learn with fun examples and tips</div></div>
+        </button>
+        <button class="action-card ac-progress" onclick="showProgress()">
+          <span class="ac-icon">🏆</span>
+          <div class="ac-text"><div class="ac-title">My Progress</div><div class="ac-sub">See your stars and level stats</div></div>
+        </button>
+        <button class="action-card ac-change" onclick="changePlayer()">
+          <span class="ac-icon">🔄</span>
+          <div class="ac-text"><div class="ac-title">Change Player</div><div class="ac-sub">Switch to a different player</div></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- LEVEL SELECT -->
+    <div id="screen-level-select" class="card" style="display:none;">
+      <div style="margin-bottom:16px;">
+        <button class="btn btn-sm btn-ghost" onclick="goHome()">← Back to Home</button>
+      </div>
+      <div class="section-title" id="level-select-title">Choose Your Level 🎯</div>
+      <div class="section-sub" id="level-select-sub">Pick how hard you want the questions!</div>
+      <div class="level-grid">
+        <div class="level-card beginner"     onclick="selectLevel('beginner',this)">
+          <div class="lv-icon">🌱</div><div class="lv-name">Beginner</div>
+          <div class="lv-desc">Numbers 1–10, super easy!</div>
+        </div>
+        <div class="level-card intermediate" onclick="selectLevel('intermediate',this)">
+          <div class="lv-icon">🌤️</div><div class="lv-name">Intermediate</div>
+          <div class="lv-desc">Numbers up to 20, a good challenge</div>
+        </div>
+        <div class="level-card advanced"     onclick="selectLevel('advanced',this)">
+          <div class="lv-icon">⚡</div><div class="lv-name">Advanced</div>
+          <div class="lv-desc">Bigger numbers, tricky questions</div>
+        </div>
+        <div class="level-card expert"       onclick="selectLevel('expert',this)">
+          <div class="lv-icon">🔥</div><div class="lv-name">Expert</div>
+          <div class="lv-desc">For math champions only!</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="start-level-btn" onclick="launchTest()" style="display:none;">🚀 Start Test!</button>
+    </div>
+
+    <!-- TEST -->
+    <div id="screen-test" class="card" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div class="section-title" id="test-title" style="margin:0;">Quick Test ✏️</div>
+        <button class="btn btn-sm btn-ghost" onclick="confirmQuitTest()">✕ Quit</button>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="test-progress-bar" style="width:0%"></div>
+        </div>
+        <div class="progress-label" id="test-progress-label">Question 1 of 10</div>
+      </div>
+      <div class="question-box">
+        <div id="test-level-badge" class="level-badge beginner">🌱 Beginner</div>
+        <div class="question-label">What is...</div>
+        <div class="question-text" id="test-question">5 + 3 = ?</div>
+        <div class="question-hint">Pick the right answer!</div>
+      </div>
+      <div class="options-grid" id="test-options"></div>
+      <div id="test-feedback" style="display:none;" class="feedback"></div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="screen-results" class="card" style="display:none;">
+      <div class="section-title" style="text-align:center;">Test Results! 🎊</div>
+      <div class="score-stars" id="result-stars"></div>
+      <div class="score-big" id="result-score"></div>
+      <div style="text-align:center;font-weight:700;color:#6b7280;margin-bottom:4px;" id="result-msg"></div>
+      <div style="text-align:center;margin-bottom:20px;" id="result-level-badge"></div>
+      <div id="result-breakdown" style="margin-bottom:20px;max-height:280px;overflow-y:auto;"></div>
+      <div class="ai-lesson" id="ai-lesson-box" style="display:none;">
+        <h3>🤖 Your Personalised Lesson</h3>
+        <div class="ai-lesson-content" id="ai-lesson-text">
+          <div class="loading-dots"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button class="btn btn-primary"  id="retry-btn" onclick="">🔄 Try Again</button>
+        <button class="btn btn-orange"   onclick="showLessons()">📖 Go to Lessons</button>
+        <button class="btn btn-success"  onclick="goHome()">🏠 Back to Home</button>
+      </div>
+    </div>
+
+    <!-- LESSONS LIST -->
+    <div id="screen-lessons" class="card" style="display:none;">
+      <div style="margin-bottom:16px;">
+        <button class="btn btn-sm btn-ghost" onclick="goHome()">← Back to Home</button>
+      </div>
+      <div class="section-title">📖 Choose a Lesson</div>
+      <div class="section-sub">Pick what you want to learn today!</div>
+      <div class="topics-grid" id="lesson-topics"></div>
+    </div>
+
+    <!-- LESSON DETAIL -->
+    <div id="screen-lesson-detail" class="card" style="display:none;">
+      <div style="margin-bottom:16px;">
+        <button class="btn btn-sm btn-ghost" onclick="showLessons()">← Back to Lessons</button>
+      </div>
+      <div class="section-title" id="lesson-detail-title">Addition ➕</div>
+      <div class="section-sub" id="lesson-detail-sub"></div>
+      <div id="lesson-detail-content"></div>
+      <button class="btn btn-primary" style="margin-top:8px;" onclick="showLevelSelect('topic')">✏️ Test Yourself on This!</button>
+    </div>
+
+    <!-- PROGRESS -->
+    <div id="screen-progress" class="card" style="display:none;">
+      <div style="margin-bottom:16px;">
+        <button class="btn btn-sm btn-ghost" onclick="goHome()">← Back to Home</button>
+      </div>
+      <div class="section-title">🏆 My Progress</div>
+      <div class="section-sub">Look how far you've come!</div>
+      <div id="progress-content"></div>
+    </div>
+
+  </div><!-- /screen-player -->
+</div><!-- /app -->
+
+<script>
+const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
+const SAVE_KEY = "mathland_v2_save";
+
+// ─── Level config ─────────────────────────────────────────
+const LEVELS = {
+  beginner:     { label:'Beginner',     icon:'🌱', addMax:10,  subMax:10,  mulMax:5,  divMax:5  },
+  intermediate: { label:'Intermediate', icon:'🌤️', addMax:20,  subMax:20,  mulMax:9,  divMax:9  },
+  advanced:     { label:'Advanced',     icon:'⚡', addMax:50,  subMax:50,  mulMax:12, divMax:12 },
+  expert:       { label:'Expert',       icon:'🔥', addMax:100, subMax:100, mulMax:15, divMax:15 },
+};
+
+// ─── State ────────────────────────────────────────────────
+let state = {
+  name:'', topics:[], stars:0,
+  testResults:[], allResults:[],
+  testQuestions:[], currentQ:0, score:0,
+  currentTopic:null, testMode:'quick', selectedLevel:null,
+};
+
+// ─── localStorage ─────────────────────────────────────────
+function saveProgress() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      name: state.name, topics: state.topics, stars: state.stars,
+      allResults: state.allResults.slice(-300),
+    }));
+  } catch(e) {}
+}
+function loadProgress() {
+  try { const r = localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : null; } catch(e) { return null; }
+}
+
+// ─── Topics ───────────────────────────────────────────────
+const TOPICS = {
+  addition:       { label:'Addition',       icon:'➕', cls:'add', desc:'Learn to add numbers together!',   lesson:{ intro:'Addition means putting things together! When you add, you find out how many things there are in total.', steps:[{title:'🍎 Think of Objects',body:"Imagine you have 3 apples. Your friend gives you 2 more. Now you have 5! That's 3 + 2 = 5."},{title:'📏 Count Forward',body:'Start at the first number and count up. For 4 + 3, start at 4 and count: 5, 6, 7. The answer is 7!'},{title:'🔢 Use Your Fingers',body:'Hold up fingers for the first number, then keep counting up with more fingers for the second number!'}], examples:['3 + 4 = 7','5 + 6 = 11','12 + 8 = 20'], visuals:['🍎🍎🍎 + 🍎🍎 = 🍎🍎🍎🍎🍎','⭐⭐⭐⭐ + ⭐⭐ = ⭐⭐⭐⭐⭐⭐'] } },
+  subtraction:    { label:'Subtraction',    icon:'➖', cls:'sub', desc:'Learn to take away numbers!',      lesson:{ intro:'Subtraction means taking away! When you subtract, you find out how many are left.', steps:[{title:'🍪 Taking Away',body:'Imagine you have 8 cookies. You eat 3. How many are left? 8 - 3 = 5 cookies!'},{title:'📏 Count Backwards',body:'Start at the first number and count down. For 9 - 4, start at 9 and go: 8, 7, 6, 5. Answer is 5!'},{title:'🧮 Use a Number Line',body:'Draw a line with numbers. Jump left (backwards) to subtract!'}], examples:['8 - 3 = 5','15 - 7 = 8','20 - 12 = 8'], visuals:['🍪🍪🍪🍪🍪🍪🍪🍪 take away 🍪🍪🍪 = 🍪🍪🍪🍪🍪','🌟🌟🌟🌟🌟 take away 🌟🌟 = 🌟🌟🌟'] } },
+  multiplication: { label:'Multiplication', icon:'✖️', cls:'mul', desc:'Learn to multiply numbers!',        lesson:{ intro:"Multiplication is super-fast addition! Instead of adding the same number many times, we multiply.", steps:[{title:'🐾 Equal Groups',body:"3 dogs × 4 legs = 12 legs total. It's the same as 4+4+4 = 12!"},{title:'📊 Times Tables',body:"Learning your times tables makes multiplication fast! Start with 2s, 5s, and 10s — they're easiest!"},{title:'🔁 Switch Around',body:'3 × 4 is the same as 4 × 3. Both equal 12! This trick helps a lot.'}], examples:['3 × 4 = 12','5 × 6 = 30','7 × 8 = 56'], visuals:['🐟🐟🐟 × 4 = 12 fish total','⚽ × 5 = ⚽⚽⚽⚽⚽'] } },
+  division:       { label:'Division',       icon:'➗', cls:'div', desc:'Learn to share numbers equally!',   lesson:{ intro:"Division means sharing equally or splitting into groups. It's the opposite of multiplication!", steps:[{title:'🍕 Sharing Fairly',body:'12 pizza slices for 3 friends = 4 slices each. 12 ÷ 3 = 4!'},{title:'🔄 Opposite of Multiply',body:'If 3 × 4 = 12, then 12 ÷ 3 = 4. Knowing times tables helps you divide!'},{title:'🧺 Making Groups',body:'Division can mean: how many groups fit? 15 ÷ 5 = 3 groups of 5.'}], examples:['12 ÷ 3 = 4','20 ÷ 4 = 5','36 ÷ 6 = 6'], visuals:['🍕🍕🍕🍕🍕🍕 ÷ 2 = 🍕🍕🍕 each','⭐⭐⭐⭐⭐⭐⭐⭐⭐ ÷ 3 = ⭐⭐⭐ each'] } },
+};
+
+// ─── Question generator (no repeats) ─────────────────────
+const recentQs = new Set();
+
+function genQuestion(topic, level) {
+  const cfg = LEVELS[level];
+  const rand = (lo, hi) => Math.floor(Math.random() * (hi - lo + 1)) + lo;
+  let a, b, q, ans, tries = 0;
+
+  do {
+    tries++;
+    if (topic === 'addition') {
+      a = rand(1, cfg.addMax); b = rand(1, cfg.addMax);
+      q = `${a} + ${b} = ?`; ans = a + b;
+    } else if (topic === 'subtraction') {
+      const hi = cfg.subMax + Math.floor(cfg.subMax * 0.5);
+      a = rand(cfg.subMax > 10 ? 5 : 2, hi);
+      b = rand(1, a - 1);
+      q = `${a} - ${b} = ?`; ans = a - b;
+    } else if (topic === 'multiplication') {
+      a = rand(1, cfg.mulMax); b = rand(1, cfg.mulMax);
+      q = `${a} × ${b} = ?`; ans = a * b;
+    } else {
+      b = rand(2, cfg.divMax); ans = rand(1, cfg.divMax);
+      a = b * ans;
+      q = `${a} ÷ ${b} = ?`;
+    }
+    if (tries > 40) { recentQs.clear(); break; }
+  } while (recentQs.has(q));
+
+  recentQs.add(q);
+  if (recentQs.size > 80) {
+    const arr = [...recentQs]; arr.splice(0, 20).forEach(k => recentQs.delete(k));
+  }
+  return { topic, question: q, answer: ans, level };
+}
+
+function genWrongAnswers(correct) {
+  const wrongs = new Set(); let tries = 0;
+  const spread = correct > 30 ? Math.floor(correct * 0.25) : correct > 10 ? 6 : 3;
+  while (wrongs.size < 3 && tries < 100) {
+    tries++;
+    const offset = Math.floor(Math.random() * spread) + 1;
+    const w = correct + (Math.random() < 0.5 ? offset : -offset);
+    if (w > 0 && w !== correct) wrongs.add(w);
+  }
+  // fallback
+  let fb = 1;
+  while (wrongs.size < 3) { if (correct + fb !== correct) wrongs.add(correct + fb); fb++; }
+  return [correct, ...wrongs].sort(() => Math.random() - 0.5);
+}
+
+// ─── Screen manager ───────────────────────────────────────
+const ALL_SCREENS = ['screen-welcome','screen-home','screen-level-select','screen-test','screen-results','screen-lessons','screen-lesson-detail','screen-progress'];
+
+function show(id) {
+  ALL_SCREENS.forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.style.display = 'none';
+  });
+  const wrap = document.getElementById('screen-player');
+  if (id === 'screen-welcome') {
+    wrap.style.display = 'none';
+    document.getElementById('screen-welcome').style.display = 'block';
+  } else {
+    wrap.style.display = 'block';
+    document.getElementById(id).style.display = 'block';
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updatePlayerInfo() {
+  document.getElementById('display-name').textContent = state.name + '!';
+  document.getElementById('display-stars').textContent = `⭐ ${state.stars} stars`;
+}
+
+// ─── Boot ─────────────────────────────────────────────────
+function init() {
+  const saved = loadProgress();
+  if (saved && saved.name) {
+    state.name     = saved.name;
+    state.topics   = saved.topics && saved.topics.length ? saved.topics : ['addition','subtraction','multiplication','division'];
+    state.stars    = saved.stars || 0;
+    state.allResults = saved.allResults || [];
+    updatePlayerInfo();
+    const banner = document.getElementById('returning-banner');
+    banner.style.display = 'flex';
+    document.getElementById('returning-msg').textContent =
+      `Welcome back, ${state.name}! You have ${state.stars} ⭐ stars. Keep going!`;
+    document.getElementById('home-greeting').textContent = `Hey ${state.name}! 👋`;
+    show('screen-home');
+  } else {
+    show('screen-welcome');
+  }
+}
+
+// ─── Welcome ──────────────────────────────────────────────
+function toggleTopic(t, btn) {
+  const idx = state.topics.indexOf(t);
+  if (idx === -1) state.topics.push(t); else state.topics.splice(idx, 1);
+  btn.classList.toggle('selected', state.topics.includes(t));
+}
+
+function startJourney() {
+  const nameEl = document.getElementById('player-name');
+  const name = nameEl.value.trim();
+  if (!name) { nameEl.focus(); nameEl.style.borderColor = '#ef4444'; return; }
+  nameEl.style.borderColor = '';
+  if (state.topics.length === 0) state.topics = ['addition','subtraction','multiplication','division'];
+  state.name = name; state.stars = 0; state.allResults = [];
+  saveProgress(); updatePlayerInfo();
+  document.getElementById('home-greeting').textContent = `Hey ${state.name}! 👋`;
+  document.getElementById('returning-banner').style.display = 'none';
+  show('screen-home');
+}
+
+function goHome() { show('screen-home'); }
+
+function changePlayer() {
+  if (!confirm('Switch player? Your progress is saved — just enter your name again to come back!')) return;
+  state.name = ''; state.topics = []; state.stars = 0; state.allResults = [];
+  state.testResults = []; state.testQuestions = []; state.selectedLevel = null;
+  document.querySelectorAll('#screen-welcome .topic-pill').forEach(b => b.classList.remove('selected'));
+  document.getElementById('player-name').value = '';
+  show('screen-welcome');
+}
+
+// ─── Level Select ─────────────────────────────────────────
+function showLevelSelect(mode) {
+  state.testMode = mode;
+  const title = document.getElementById('level-select-title');
+  const sub   = document.getElementById('level-select-sub');
+  if (mode === 'topic' && state.currentTopic) {
+    const info = TOPICS[state.currentTopic];
+    title.textContent = `${info.icon} ${info.label} Test`;
+    sub.textContent = 'Pick your difficulty!';
+  } else {
+    title.textContent = 'Choose Your Level 🎯';
+    sub.textContent = 'How hard do you want the questions?';
+  }
+  document.querySelectorAll('.level-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('start-level-btn').style.display = 'none';
+  state.selectedLevel = null;
+  show('screen-level-select');
+}
+
+function selectLevel(level, el) {
+  state.selectedLevel = level;
+  document.querySelectorAll('.level-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('start-level-btn').style.display = 'block';
+}
+
+function launchTest() {
+  if (!state.selectedLevel) return;
+  recentQs.clear();
+  const topics = (state.testMode === 'topic' && state.currentTopic) ? [state.currentTopic] : state.topics;
+  const count = 10;
+  const qs = [];
+  topics.forEach(t => {
+    const perT = Math.ceil(count / topics.length);
+    for (let i = 0; i < perT && qs.length < count * 2; i++) qs.push(genQuestion(t, state.selectedLevel));
+  });
+  // shuffle and cut to exactly 10
+  state.testQuestions = qs.sort(() => Math.random() - 0.5).slice(0, count);
+  state.currentQ = 0; state.score = 0; state.testResults = [];
+
+  const lvl = LEVELS[state.selectedLevel];
+  document.getElementById('test-title').textContent =
+    (state.testMode === 'topic' && state.currentTopic)
+      ? `${TOPICS[state.currentTopic].icon} ${TOPICS[state.currentTopic].label} — ${lvl.label}`
+      : `${lvl.icon} ${lvl.label} Test`;
+
+  const badge = document.getElementById('test-level-badge');
+  badge.className = `level-badge ${state.selectedLevel}`;
+  badge.textContent = `${lvl.icon} ${lvl.label}`;
+
+  show('screen-test');
+  renderQuestion();
+}
+
+function confirmQuitTest() {
+  if (confirm('Quit this test?')) goHome();
+}
+
+// ─── Test ─────────────────────────────────────────────────
+function renderQuestion() {
+  const q     = state.testQuestions[state.currentQ];
+  const total = state.testQuestions.length;
+  document.getElementById('test-progress-bar').style.width = ((state.currentQ / total) * 100) + '%';
+  document.getElementById('test-progress-label').textContent = `Question ${state.currentQ + 1} of ${total}`;
+  document.getElementById('test-question').textContent = q.question;
+  document.getElementById('test-feedback').style.display = 'none';
+
+  const opts = genWrongAnswers(q.answer);
+  const grid = document.getElementById('test-options');
+  grid.innerHTML = '';
+  opts.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.textContent = opt;
+    btn.onclick = () => handleAnswer(opt, q.answer, btn);
+    grid.appendChild(btn);
+  });
+}
+
+function handleAnswer(chosen, correct, clickedBtn) {
+  const isCorrect = chosen === correct;
+  document.querySelectorAll('.option-btn').forEach(b => {
+    b.disabled = true;
+    if (Number(b.textContent) === correct) b.classList.add('correct');
+  });
+  if (!isCorrect) clickedBtn.classList.add('wrong');
+
+  const q = state.testQuestions[state.currentQ];
+  const result = { ...q, chosen, isCorrect };
+  state.testResults.push(result);
+  state.allResults.push(result);
+  if (isCorrect) { state.score++; state.stars++; updatePlayerInfo(); launchConfetti(12); }
+
+  const fb = document.getElementById('test-feedback');
+  fb.className = 'feedback ' + (isCorrect ? 'correct' : 'wrong');
+  fb.textContent = isCorrect
+    ? ['🎉 Amazing!','⭐ Correct!','🥳 Superstar!','✅ Well done!','🔥 Nailed it!'][Math.floor(Math.random()*5)]
+    : `❌ Not quite! The answer is ${correct}`;
+  fb.style.display = 'block';
+
+  setTimeout(() => {
+    state.currentQ++;
+    if (state.currentQ < state.testQuestions.length) renderQuestion();
+    else showResults();
+  }, 1400);
+}
+
+// ─── Results ──────────────────────────────────────────────
+function showResults() {
+  saveProgress();
+  const total = state.testQuestions.length;
+  const pct   = Math.round((state.score / total) * 100);
+  const stars = pct >= 90 ? '⭐⭐⭐' : pct >= 70 ? '⭐⭐' : '⭐';
+  const msgs  = {
+    great: ["🎊 You're a Math Superstar!", '🚀 Incredible work!', '🏆 Champion!'],
+    good:  ['👍 Great job!', '😊 Well done!', '🌟 Keep it up!'],
+    ok:    ['💪 Good try!', '📚 Let\'s keep learning!', '🤗 You\'re improving!'],
+  };
+  const arr = pct >= 80 ? msgs.great : pct >= 60 ? msgs.good : msgs.ok;
+  const lvl = LEVELS[state.selectedLevel];
+
+  document.getElementById('result-stars').textContent = stars;
+  document.getElementById('result-score').textContent = `${state.score}/${total}`;
+  document.getElementById('result-msg').textContent = arr[Math.floor(Math.random()*arr.length)] + ` (${pct}%)`;
+  document.getElementById('result-level-badge').innerHTML = `<span class="level-badge ${state.selectedLevel}">${lvl.icon} ${lvl.label}</span>`;
+
+  // Wire up retry button
+  document.getElementById('retry-btn').onclick = () => showLevelSelect(state.testMode);
+
+  // Breakdown
+  const bd = document.getElementById('result-breakdown');
+  bd.innerHTML = '<div style="font-weight:800;color:#374151;margin-bottom:10px;">Question Review:</div>';
+  state.testResults.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'result-row ' + (r.isCorrect ? 'correct' : 'wrong');
+    row.innerHTML = `
+      <span class="q">${r.question.replace('= ?','= '+r.answer)}</span>
+      <span style="font-size:0.82rem;flex-shrink:0;">${r.isCorrect ? '' : 'You: '+r.chosen}</span>
+      <span class="status">${r.isCorrect ? '✅' : '❌'}</span>`;
+    bd.appendChild(row);
+  });
+
+  // AI lesson
+  const weak = {};
+  state.testResults.filter(r => !r.isCorrect).forEach(r => { weak[r.topic] = (weak[r.topic]||0)+1; });
+  const aiBox = document.getElementById('ai-lesson-box');
+  if (pct < 100) {
+    aiBox.style.display = 'block';
+    document.getElementById('ai-lesson-text').innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+    generateAILesson(weak, pct, state.score, total, state.selectedLevel);
+  } else {
+    aiBox.style.display = 'none';
+  }
+
+  if (pct >= 80) launchConfetti(45);
+  show('screen-results');
+}
+
+async function generateAILesson(weakTopics, pct, score, total, level) {
+  const weakList = Object.entries(weakTopics).map(([t,n])=>`${t} (missed ${n})`).join(', ');
+  const wrongQs  = state.testResults.filter(r=>!r.isCorrect)
+    .map(r=>`${r.question.replace('= ?','')} (correct: ${r.answer}, said: ${r.chosen})`).join('\n');
+  const lvlLabel = LEVELS[level].label;
+  const prompt = `You are a friendly, encouraging math teacher for children aged 6-12.
+A child named ${state.name} scored ${score}/${total} (${pct}%) on their ${lvlLabel} math test.
+${weakList ? `They struggled with: ${weakList}` : 'They did well!'}
+${wrongQs ? `\nWrong answers:\n${wrongQs}` : ''}
+Write a SHORT personalised lesson (max 180 words) to help them improve.
+- Simple language, encouraging, fun with emojis 🎉
+- Focus on hard topics, give 1-2 tips with examples
+- Mention their level (${lvlLabel}) and if they seem ready for a harder level
+- Short paragraphs, address ${state.name} by name`;
+
+  try {
+    const res  = await fetch(ANTHROPIC_API, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:400, messages:[{role:'user',content:prompt}] })
+    });
+    const data = await res.json();
+    const text = data.content?.map(c=>c.text||'').join('') || `Great effort, ${state.name}! Keep practising! 🌟`;
+    document.getElementById('ai-lesson-text').textContent = text;
+  } catch(e) {
+    document.getElementById('ai-lesson-text').textContent = `Great effort, ${state.name}! Keep practising and you'll get even better. 🌟 Try the lessons to review any tricky topics!`;
+  }
+}
+
+// ─── Lessons ──────────────────────────────────────────────
+function showLessons() {
+  const container = document.getElementById('lesson-topics');
+  container.innerHTML = '';
+  state.topics.forEach(t => {
+    const info = TOPICS[t];
+    const btn = document.createElement('button');
+    btn.className = `topic-pill ${info.cls}`;
+    btn.innerHTML = `<span class="icon">${info.icon}</span>${info.label}`;
+    btn.onclick = () => showLessonDetail(t);
+    container.appendChild(btn);
+  });
+  show('screen-lessons');
+}
+
+function showLessonDetail(topic) {
+  state.currentTopic = topic;
+  const info = TOPICS[topic], L = info.lesson;
+  document.getElementById('lesson-detail-title').textContent = `${info.icon} ${info.label}`;
+  document.getElementById('lesson-detail-sub').textContent   = info.desc;
+
+  const content = document.getElementById('lesson-detail-content');
+  content.innerHTML = '';
+
+  // Intro + visuals
+  const introSec = document.createElement('div'); introSec.className = 'lesson-section';
+  introSec.innerHTML = `<h3>💡 What is ${info.label}?</h3><p>${L.intro}</p>`;
+  const visBox = document.createElement('div'); visBox.className = 'example-box';
+  L.visuals.forEach(v => { const r = document.createElement('div'); r.className='example-row'; r.innerHTML=`<span>${v}</span>`; visBox.appendChild(r); });
+  introSec.appendChild(visBox); content.appendChild(introSec);
+
+  // Steps
+  L.steps.forEach(step => {
+    const sec = document.createElement('div'); sec.className = 'lesson-section';
+    sec.innerHTML = `<h3>${step.title}</h3><p>${step.body}</p>`;
+    content.appendChild(sec);
+  });
+
+  // Examples
+  const exSec = document.createElement('div'); exSec.className = 'lesson-section';
+  exSec.innerHTML = '<h3>📝 Practice Examples</h3>';
+  const exBox = document.createElement('div'); exBox.className = 'example-box';
+  L.examples.forEach(ex => { const r = document.createElement('div'); r.className='example-row'; r.innerHTML=`<span>${ex}</span>`; exBox.appendChild(r); });
+  exSec.appendChild(exBox); content.appendChild(exSec);
+
+  show('screen-lesson-detail');
+}
+
+// ─── Progress ─────────────────────────────────────────────
+function showProgress() {
+  const container = document.getElementById('progress-content');
+  const all        = state.allResults;
+  const totalRight = all.filter(r=>r.isCorrect).length;
+
+  container.innerHTML = `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div class="score-big">${state.stars}</div>
+      <div style="font-weight:800;color:#6b7280;font-size:1.1rem;">Total Stars Earned ⭐</div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card" style="background:#f0fdf4;border:2px solid #86efac;">
+        <div class="stat-num" style="color:#166534;">${all.length}</div><div class="stat-lbl">Questions Tried</div>
+      </div>
+      <div class="stat-card" style="background:#f0f9ff;border:2px solid #7dd3fc;">
+        <div class="stat-num" style="color:#0369a1;">${totalRight}</div><div class="stat-lbl">Correct Answers</div>
+      </div>
+    </div>`;
+
+  // Level breakdown
+  const lvSec = document.createElement('div');
+  lvSec.innerHTML = '<div style="font-weight:800;color:#374151;margin-bottom:12px;">Performance by Level:</div>';
+  Object.entries(LEVELS).forEach(([lv, cfg]) => {
+    const res     = all.filter(r=>r.level===lv);
+    const correct = res.filter(r=>r.isCorrect).length;
+    const pct     = res.length > 0 ? Math.round((correct/res.length)*100) : 0;
+    const div = document.createElement('div'); div.style.cssText = 'margin-bottom:14px;';
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;font-weight:700;margin-bottom:6px;">
+        <span>${cfg.icon} ${cfg.label}</span>
+        <span style="color:#6b7280;">${res.length > 0 ? pct+'% ('+res.length+' Qs)' : 'Not tried yet'}</span>
+      </div>
+      ${res.length > 0 ? `<div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%"></div></div>` : ''}`;
+    lvSec.appendChild(div);
+  });
+  container.appendChild(lvSec);
+
+  // Topic breakdown
+  const tpSec = document.createElement('div');
+  tpSec.innerHTML = '<div style="font-weight:800;color:#374151;margin-bottom:12px;margin-top:16px;">Performance by Topic:</div>';
+  state.topics.forEach(t => {
+    const info    = TOPICS[t];
+    const res     = all.filter(r=>r.topic===t);
+    const correct = res.filter(r=>r.isCorrect).length;
+    const pct     = res.length > 0 ? Math.round((correct/res.length)*100) : 0;
+    const div = document.createElement('div'); div.style.cssText = 'margin-bottom:14px;';
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;font-weight:700;margin-bottom:6px;">
+        <span>${info.icon} ${info.label}</span>
+        <span style="color:#6b7280;">${res.length > 0 ? pct+'%' : 'Not tested yet'}</span>
+      </div>
+      ${res.length > 0 ? `<div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%"></div></div>` : ''}`;
+    tpSec.appendChild(div);
+  });
+  container.appendChild(tpSec);
+
+  // Reset
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'btn btn-ghost btn-sm';
+  resetBtn.style.cssText = 'margin-top:16px;width:100%;color:#ef4444;border-color:#fca5a5;';
+  resetBtn.textContent = '🗑️ Reset All Progress';
+  resetBtn.onclick = () => {
+    if (confirm('Reset all your stars and history? This cannot be undone!')) {
+      state.stars = 0; state.allResults = []; saveProgress(); updatePlayerInfo(); showProgress();
+    }
+  };
+  container.appendChild(resetBtn);
+
+  show('screen-progress');
+}
+
+// ─── Confetti ─────────────────────────────────────────────
+function launchConfetti(count = 15) {
+  const colors = ['#FFD93D','#FF6B9D','#6BCB77','#6EC6F5','#A855F7','#FF8C42'];
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.left = Math.random() * 100 + 'vw';
+      el.style.top = '-20px';
+      el.style.background = colors[Math.floor(Math.random() * colors.length)];
+      el.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+      el.style.animationDelay   = (Math.random() * 0.3) + 's';
+      const size = (8 + Math.random() * 8) + 'px';
+      el.style.width = size; el.style.height = size;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3500);
+    }, i * 40);
+  }
+}
+
+// ─── Go! ──────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
