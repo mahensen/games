@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drunk & Drive 🍺</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#1a0a2e;font-family:'Nunito',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;}
+#wrapper{position:relative;width:480px;}
+canvas{display:block;border-radius:12px;box-shadow:0 0 60px rgba(255,180,0,0.3),0 0 120px rgba(255,100,0,0.1);}
+#ui{position:absolute;top:0;left:0;width:100%;pointer-events:none;}
+#hud{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(0,0,0,0.55);border-radius:12px 12px 0 0;}
+.hud-block{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.hud-label{font-size:10px;letter-spacing:0.12em;color:rgba(255,255,255,0.5);text-transform:uppercase;}
+.hud-val{font-family:'Fredoka One',cursive;font-size:20px;color:#fff;}
+#health-bar-wrap{flex:1;margin:0 14px;}
+#health-track{height:18px;background:rgba(255,255,255,0.1);border-radius:9px;overflow:hidden;border:1px solid rgba(255,255,255,0.15);}
+#health-fill{height:100%;border-radius:9px;transition:width 0.3s,background 0.3s;background:linear-gradient(90deg,#4eff91,#00e5ff);}
+#drunk-bar-wrap{width:80px;}
+#drunk-track{height:14px;background:rgba(255,255,255,0.1);border-radius:7px;overflow:hidden;border:1px solid rgba(255,180,0,0.3);}
+#drunk-fill{height:100%;border-radius:7px;transition:width 0.4s;background:linear-gradient(90deg,#ffe259,#ffa751);}
+#timer-ring{font-family:'Fredoka One',cursive;font-size:22px;color:#fff;min-width:44px;text-align:center;}
+/* overlays */
+#overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;background:rgba(10,0,30,0.92);gap:18px;}
+#overlay h1{font-family:'Fredoka One',cursive;font-size:42px;color:#ffe259;text-shadow:0 0 30px #ffa751,0 2px 0 #a0600a;text-align:center;line-height:1.1;}
+#overlay .sub{font-size:15px;color:rgba(255,255,255,0.6);text-align:center;max-width:320px;line-height:1.6;}
+.big-btn{font-family:'Fredoka One',cursive;font-size:22px;padding:14px 44px;border:none;border-radius:50px;background:linear-gradient(135deg,#ffe259,#ffa751);color:#2a1200;cursor:pointer;box-shadow:0 4px 20px rgba(255,180,0,0.5);transition:transform 0.15s,box-shadow 0.15s;}
+.big-btn:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 8px 32px rgba(255,180,0,0.7);}
+.controls-hint{font-size:13px;color:rgba(255,255,255,0.45);text-align:center;}
+#level-badge{font-family:'Fredoka One',cursive;font-size:16px;padding:6px 18px;background:linear-gradient(135deg,#a855f7,#6366f1);border-radius:20px;color:#fff;display:none;}
+/* drink popup */
+#drink-popup{position:absolute;left:50%;transform:translateX(-50%);top:80px;font-family:'Fredoka One',cursive;font-size:28px;color:#ffe259;text-shadow:0 0 20px #ffa751;pointer-events:none;opacity:0;transition:opacity 0.3s;white-space:nowrap;z-index:10;}
+/* score screen */
+#score-rows{width:100%;max-width:320px;display:flex;flex-direction:column;gap:10px;}
+.score-row{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:rgba(255,255,255,0.06);border-radius:10px;font-size:15px;color:rgba(255,255,255,0.8);}
+.score-row span:last-child{font-family:'Fredoka One',cursive;color:#ffe259;font-size:18px;}
+#final-score-big{font-family:'Fredoka One',cursive;font-size:58px;color:#4eff91;text-shadow:0 0 30px #4eff91;}
+#rank-txt{font-size:13px;color:rgba(255,255,255,0.5);letter-spacing:0.1em;text-transform:uppercase;}
+</style>
+</head>
+<body>
+<div id="wrapper">
+  <canvas id="c" width="480" height="640"></canvas>
+  <div id="ui">
+    <div id="hud">
+      <div class="hud-block">
+        <span class="hud-label">Level</span>
+        <span class="hud-val" id="level-val">1</span>
+      </div>
+      <div id="health-bar-wrap">
+        <div class="hud-label" style="text-align:center;margin-bottom:3px">Health</div>
+        <div id="health-track"><div id="health-fill" style="width:100%"></div></div>
+      </div>
+      <div class="hud-block">
+        <span class="hud-label">Score</span>
+        <span class="hud-val" id="score-val">0</span>
+      </div>
+      <div class="hud-block" style="margin-left:8px">
+        <span class="hud-label">Time</span>
+        <span id="timer-ring">60</span>
+      </div>
+    </div>
+    <div style="padding:4px 14px;background:rgba(0,0,0,0.4);display:flex;align-items:center;gap:8px;">
+      <span style="font-size:11px;color:rgba(255,180,0,0.7);letter-spacing:0.1em;">🍺 DRUNK</span>
+      <div id="drunk-bar-wrap" style="flex:1"><div id="drunk-track"><div id="drunk-fill" style="width:0%"></div></div></div>
+      <span id="drunk-label" style="font-size:11px;color:rgba(255,255,255,0.45);min-width:40px;text-align:right">Sober</span>
+    </div>
+  </div>
+  <div id="drink-popup"></div>
+  <div id="overlay">
+    <div style="font-size:60px;line-height:1">🍺🚗💨</div>
+    <h1>Drunk<br>&amp; Drive</h1>
+    <p class="sub">You can't control the speed. You CAN control the steering.<br>Every beer changes everything. 🤪</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;font-size:13px;color:rgba(255,255,255,0.5)">
+      <span>← → Arrow keys</span><span>or</span><span>A / D</span><span>or</span><span>Touch drag</span>
+    </div>
+    <button class="big-btn" onclick="startGame()">🚀 Floor It!</button>
+    <p class="controls-hint">Survive 60s per level • Don't crash • Drink responsibly... or don't</p>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 480, H = 640;
+
+// ── State ──────────────────────────────────────────
+let state = 'menu'; // menu | playing | levelup | gameover
+let score = 0, level = 1, health = 100, drunkness = 0;
+let timeLeft = 60;
+let timerTick = 0;
+let drinkTimer = 0;
+let drinksConsumed = 0;
+let totalBeers = 0, totalHits = 0, totalDodges = 0;
+
+// Car
+let car = { x: 220, y: 500, w: 44, h: 72, vx: 0, wobble: 0, wobbleDir: 1, wobbleFreq: 0, steerSens: 1, horn: false };
+let carAnim = { lean: 0, drinkAnim: 0, drinkFace: 0, crashAnim: 0, glassVisible: false };
+
+// Road
+let roadX = 80;
+let roadW = 320;
+let laneLines = [];
+let roadOffset = 0;
+let gameSpeed = 3;
+
+// Obstacles
+let obstacles = [];
+let particles = [];
+let floaters = []; // floating text
+let bgTrees = [];
+
+// Bottle throw system
+let bottles = []; // thrown bottles in flight
+// drinkPhase: 0=idle, 1=raising, 2=drinking, 3=throwing
+let drinkPhase = 0;
+let drinkPhaseTimer = 0;
+let drinkBottle = null; // the bottle being held during drink animation
+
+// Controls
+let keys = { left: false, right: false };
+let touchStartX = null;
+
+// Drunk effects
+let screenShake = 0, screenShakeDir = 1;
+let vignette = 0;
+let inverted = false;
+let invertTimer = 0;
+let driftForce = 0; // random drift
+
+// Messages
+const drinkMsgs = [
+  ["🍺 BOTTOMS UP!", "+SPEED 🔥"],
+  ["🍻 CHEERS MATE!", "WOBBLE MODE"],
+  ["🥴 URR BURP!", "CONTROLS REVERSED 😈"],
+  ["🍺 GLUG GLUG", "LUCKY STEER ⭐"],
+  ["🤢 HICCUP!", "SLOW DOWN 🐌"],
+  ["🍺 ONE MORE!", "+HEALTH 💚"],
+  ["😵 WOO HOO!", "SPEED BOOST 🚀"],
+  ["🥴 TASTES LIKE", "GASOLINE... 🤔"],
+  ["🍺 FOR COURAGE!", "CONTROLS SLIPPERY"],
+  ["😂 I'M FINE!!!", "TOTALLY FINE"],
+];
+
+const obstacleDefs = [
+  { type:'car', w:42, h:68, emoji:'🚗', color:'#e74c3c', score:10 },
+  { type:'car', w:42, h:68, emoji:'🚙', color:'#3498db', score:10 },
+  { type:'car', w:42, h:68, emoji:'🚕', color:'#f1c40f', score:10 },
+  { type:'truck', w:52, h:88, emoji:'🚛', color:'#8e44ad', score:15 },
+  { type:'person', w:24, h:36, emoji:'🚶', color:'#27ae60', score:20 },
+  { type:'person', w:24, h:36, emoji:'👮', color:'#2980b9', score:30 },
+  { type:'tree', w:36, h:36, emoji:'🌳', color:'#27ae60', score:5 },
+  { type:'cone', w:20, h:24, emoji:'🚧', color:'#e67e22', score:5 },
+  { type:'dog', w:24, h:20, emoji:'🐕', color:'#d35400', score:25 },
+];
+
+// ── Init ──────────────────────────────────────────
+function init() {
+  laneLines = [];
+  for (let i = 0; i < 8; i++) laneLines.push({ y: i * 90 });
+  bgTrees = [];
+  for (let i = 0; i < 10; i++) {
+    bgTrees.push({ x: Math.random() < 0.5 ? 10 + Math.random()*55 : roadX+roadW+Math.random()*55, y: Math.random()*H, size: 16+Math.random()*20 });
+  }
+  obstacles = [];
+  particles = [];
+  floaters = [];
+  bottles = [];
+  drinkPhase = 0;
+  drinkPhaseTimer = 0;
+  drinkBottle = null;
+}
+
+function startGame() {
+  document.getElementById('overlay').style.display = 'none';
+  state = 'playing';
+  score = 0; level = 1; health = 100; drunkness = 0;
+  timeLeft = 60; timerTick = 0;
+  drinkTimer = 0; drinksConsumed = 0;
+  totalBeers = 0; totalHits = 0; totalDodges = 0;
+  car = { x: 220, y: 500, w: 44, h: 72, vx: 0, wobble: 0, wobbleDir: 1, wobbleFreq: 0, steerSens: 1, horn: false };
+  carAnim = { lean: 0, drinkAnim: 0, drinkFace: 0, crashAnim: 0, glassVisible: false };
+  gameSpeed = 3 + (level - 1) * 0.8;
+  driftForce = 0; screenShake = 0; inverted = false; invertTimer = 0;
+  bottles = []; drinkPhase = 0; drinkPhaseTimer = 0; drinkBottle = null;
+  applyDrunkEffects(); // apply initial state
+  init();
+  document.getElementById('level-val').textContent = level;
+}
+
+// ── Game Loop ──────────────────────────────────────────
+let last = 0;
+function loop(ts) {
+  const dt = Math.min((ts - last) / 16.67, 3);
+  last = ts;
+  if (state === 'playing') update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update(dt) {
+  // Timer
+  timerTick += dt;
+  if (timerTick >= 60) { // 60 frames = 1 second
+    timerTick = 0;
+    timeLeft--;
+    document.getElementById('timer-ring').textContent = timeLeft;
+    if (timeLeft <= 0) {
+      // Level up or win
+      if (level < 3) {
+        triggerLevelUp();
+      } else {
+        endGame(true);
+      }
+      return;
+    }
+  }
+
+  // Drink timer (every 5 seconds = 5*60 frames)
+  drinkTimer += dt;
+  if (drinkTimer >= 300) {
+    drinkTimer = 0;
+    takeDrink();
+  }
+
+  // Inverted controls timer
+  if (invertTimer > 0) { invertTimer -= dt; if (invertTimer <= 0) { inverted = false; } }
+
+  // Screen shake
+  if (screenShake > 0) screenShake -= 0.5 * dt;
+
+  // Car drift (random based on drunkness)
+  if (Math.random() < 0.02 * (drunkness / 100)) {
+    driftForce = (Math.random() - 0.5) * 1.5 * (drunkness / 100);
+  }
+  driftForce *= 0.95;
+
+  // Car wobble
+  if (car.wobbleFreq > 0) {
+    car.wobble = Math.sin(Date.now() * car.wobbleFreq * 0.01) * (drunkness / 100) * 12;
+  }
+
+  // Steering
+  let steer = 0;
+  const left = inverted ? keys.right : keys.left;
+  const right = inverted ? keys.left : keys.right;
+  if (left) steer -= 3.5 * car.steerSens;
+  if (right) steer += 3.5 * car.steerSens;
+  car.vx += steer * dt * 0.4;
+  car.vx += driftForce;
+  car.vx *= 0.78;
+  car.x += car.vx * dt;
+
+  // Road bounds
+  const minX = roadX + 6, maxX = roadX + roadW - car.w - 6;
+  if (car.x < minX) { car.x = minX; car.vx = Math.abs(car.vx) * 0.3; }
+  if (car.x > maxX) { car.x = maxX; car.vx = -Math.abs(car.vx) * 0.3; }
+
+  // Car lean animation
+  carAnim.lean = -car.vx * 0.12;
+  if (carAnim.drinkAnim > 0) carAnim.drinkAnim -= dt * 0.04;
+  if (carAnim.crashAnim > 0) carAnim.crashAnim -= dt * 0.06;
+
+  // Road scroll
+  roadOffset = (roadOffset + gameSpeed * dt) % 90;
+  bgTrees.forEach(t => {
+    t.y += gameSpeed * dt * 0.4;
+    if (t.y > H + 30) t.y = -30;
+  });
+
+  // Spawn obstacles
+  if (Math.random() < 0.018 * (1 + (level - 1) * 0.5) * dt) spawnObstacle();
+
+  // Move obstacles
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const o = obstacles[i];
+    o.y += (gameSpeed + o.extraSpeed) * dt;
+    o.x += o.drift * dt;
+    // Wiggle pedestrians
+    if (o.def.type === 'person') { o.phase += 0.05 * dt; o.x += Math.sin(o.phase) * 0.5; }
+    if (o.def.type === 'dog') { o.phase += 0.1 * dt; o.x += Math.sin(o.phase) * 1.2; }
+
+    // Check collision
+    if (!o.hit && collide(car, o)) {
+      o.hit = true;
+      health = Math.max(0, health - 25);
+      totalHits++;
+      carAnim.crashAnim = 1;
+      screenShake = 8;
+      spawnParticles(car.x + car.w/2, car.y + car.h/2, '#ff4444', 12);
+      showFloat(car.x + car.w/2, car.y, `-25% HP 💥`, '#ff4444');
+      score = Math.max(0, score - 5);
+      if (health <= 0) { endGame(false); return; }
+    }
+
+    if (o.y > H + 100) {
+      if (!o.hit) { score += o.def.score; totalDodges++; }
+      obstacles.splice(i, 1);
+    }
+  }
+
+  // Update particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vy += 0.15 * dt;
+    p.life -= 0.025 * dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // Update thrown bottles
+  for (let i = bottles.length - 1; i >= 0; i--) {
+    const b = bottles[i];
+    if (b.state === 'flying') {
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.vy += 0.28 * dt; // gravity
+      b.rot += b.rotSpeed * dt;
+      b.vx *= 0.995;
+      // Hit ground (bottom of canvas) or off sides
+      if (b.y > H + 20 || b.x < -40 || b.x > W + 40) {
+        bottles.splice(i, 1);
+      } else if (b.y > H - 60 && b.state === 'flying') {
+        // Shatter on road/ground
+        b.state = 'shattered';
+        b.shatterTimer = 40;
+        spawnBottleShards(b.x, b.y);
+        spawnParticles(b.x, b.y, '#aaf0ff', 10);
+        showFloat(b.x, b.y - 10, '💥 SMASH!', '#aaf0ff');
+      }
+    } else if (b.state === 'shattered') {
+      b.shatterTimer -= dt;
+      if (b.shatterTimer <= 0) bottles.splice(i, 1);
+    }
+  }
+
+  // Drink phase animation (raise → drink → throw)
+  if (drinkPhase > 0) {
+    drinkPhaseTimer -= dt;
+    if (drinkPhase === 1 && drinkPhaseTimer <= 0) {
+      // Done raising — now drinking
+      drinkPhase = 2;
+      drinkPhaseTimer = 55; // drink for ~55 frames
+    } else if (drinkPhase === 2 && drinkPhaseTimer <= 0) {
+      // Done drinking — THROW!
+      drinkPhase = 3;
+      drinkPhaseTimer = 20;
+      launchBottle();
+    } else if (drinkPhase === 3 && drinkPhaseTimer <= 0) {
+      drinkPhase = 0;
+      drinkBottle = null;
+      carAnim.glassVisible = false;
+    }
+  }
+
+  // Update floaters
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i];
+    f.y -= 1.2 * dt;
+    f.life -= 0.02 * dt;
+    if (f.life <= 0) floaters.splice(i, 1);
+  }
+
+  // Score increment
+  score += 0.05 * dt * level;
+
+  // Update HUD
+  updateHUD();
+}
+
+function collide(a, b) {
+  const pad = 8;
+  return a.x + pad < b.x + b.def.w - pad &&
+         a.x + a.w - pad > b.x + pad &&
+         a.y + pad < b.y + b.def.h - pad &&
+         a.y + a.h - pad > b.y + pad;
+}
+
+function spawnObstacle() {
+  const def = obstacleDefs[Math.floor(Math.random() * obstacleDefs.length)];
+  const laneCount = 3;
+  const laneW = roadW / laneCount;
+  const lane = Math.floor(Math.random() * laneCount);
+  const x = roadX + lane * laneW + (laneW - def.w) / 2 + (Math.random() - 0.5) * 20;
+  obstacles.push({
+    def, x, y: -def.h - 20,
+    drift: (Math.random() - 0.5) * 0.3,
+    extraSpeed: Math.random() * gameSpeed * 0.5,
+    phase: 0, hit: false,
+    wobble: Math.random() * Math.PI * 2
+  });
+}
+
+function takeDrink() {
+  drinksConsumed++;
+  totalBeers++;
+  const effects = ['speed_up','speed_down','wobble','reverse','sensitive','drift','lucky','nothing'];
+  const w = [25,15,20,10,15,15,10,5];
+  let r = Math.random() * w.reduce((a,b)=>a+b,0), cumW = 0, effect = effects[0];
+  for (let i = 0; i < effects.length; i++) { cumW += w[i]; if (r < cumW) { effect = effects[i]; break; } }
+
+  // Health up
+  health = Math.min(100, health + 5);
+  drunkness = Math.min(100, drunkness + 12);
+
+  // Apply effect
+  let msg1, msg2;
+  switch (effect) {
+    case 'speed_up':
+      gameSpeed = Math.min(12, gameSpeed + 1.5 + level * 0.3);
+      msg1 = "🍺 SPEED BOOST!"; msg2 = "⚡ FASTER!"; break;
+    case 'speed_down':
+      gameSpeed = Math.max(1.5, gameSpeed - 1.2);
+      msg1 = "🤢 HICCUP!"; msg2 = "🐌 SLOWER..."; break;
+    case 'wobble':
+      car.wobbleFreq = 2 + Math.random() * 3;
+      setTimeout(() => { car.wobbleFreq = 0; car.wobble = 0; }, 4000);
+      msg1 = "😵 WOOZY!"; msg2 = "WOBBLE WOBBLE"; break;
+    case 'reverse':
+      inverted = true; invertTimer = 180 + Math.random() * 120;
+      msg1 = "🥴 BRAIN FLIP!"; msg2 = "CONTROLS REVERSED 😈"; break;
+    case 'sensitive':
+      car.steerSens = 0.3 + Math.random() * 1.5;
+      setTimeout(() => { car.steerSens = 1; }, 5000);
+      msg1 = car.steerSens > 1 ? "🍺 TOO SENSITIVE!" : "😴 SLUGGISH...";
+      msg2 = car.steerSens > 1 ? "TWITCHY STEER ⚡" : "STIFF STEER 🦴"; break;
+    case 'drift':
+      driftForce = (Math.random() - 0.5) * 4;
+      msg1 = "🍺 DRIFT MODE!"; msg2 = "😂 TOKYO DRIFT"; break;
+    case 'lucky':
+      score += 50;
+      msg1 = "🎰 LUCKY SWIG!"; msg2 = "+50 BONUS! ⭐"; break;
+    default:
+      msg1 = "🍺 BOTTOMS UP!"; msg2 = "TASTES LIKE FUEL 🤔";
+  }
+
+  // Show drink animation — phase 1: raise bottle
+  carAnim.drinkAnim = 1.5;
+  carAnim.drinkFace = Math.floor(Math.random() * 5);
+  carAnim.glassVisible = true;
+  drinkPhase = 1;
+  drinkPhaseTimer = 30; // raise for ~30 frames
+  drinkBottle = { side: Math.random() < 0.5 ? 'left' : 'right' };
+
+  // Popup
+  showDrinkPopup(msg1, msg2);
+  spawnParticles(car.x + car.w/2, car.y, '#ffe259', 8);
+  showFloat(car.x + car.w/2, car.y - 10, '+5 HP 🍺', '#4eff91');
+}
+
+function showDrinkPopup(msg1, msg2) {
+  const el = document.getElementById('drink-popup');
+  el.innerHTML = `${msg1}<br><span style="font-size:18px;color:#fff">${msg2}</span>`;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.opacity = '0', 2000);
+}
+
+function showFloat(x, y, text, color) {
+  floaters.push({ x, y, text, color, life: 1 });
+}
+
+function spawnParticles(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = 2 + Math.random() * 4;
+    particles.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s - 2, color, life: 1, r: 2+Math.random()*4 });
+  }
+}
+
+function launchBottle() {
+  // Throw from the side of the car the bottle was on
+  const side = drinkBottle ? drinkBottle.side : 'right';
+  const throwX = car.x + (side === 'right' ? car.w + 4 : -4);
+  const throwY = car.y + 18;
+  // Throw outward and forward with spin
+  const vx = side === 'right' ? 4 + Math.random() * 3 : -(4 + Math.random() * 3);
+  const vy = -(3 + Math.random() * 3); // up + forward
+  bottles.push({
+    x: throwX, y: throwY,
+    vx, vy,
+    rot: 0,
+    rotSpeed: (side === 'right' ? 1 : -1) * (0.15 + Math.random() * 0.25),
+    state: 'flying',
+    shatterTimer: 0,
+    shards: [],
+    side
+  });
+}
+
+function spawnBottleShards(x, y) {
+  const shardCount = 8 + Math.floor(Math.random() * 6);
+  for (let i = 0; i < shardCount; i++) {
+    const a = (i / shardCount) * Math.PI * 2 + Math.random() * 0.4;
+    const s = 2 + Math.random() * 5;
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s - 3,
+      color: Math.random() < 0.5 ? '#88ffcc' : '#aaf0ff',
+      life: 1,
+      r: 1.5 + Math.random() * 3
+    });
+  }
+}
+
+function applyDrunkEffects() {
+  // visual effects handled in draw
+}
+
+function updateHUD() {
+  const hf = document.getElementById('health-fill');
+  hf.style.width = health + '%';
+  hf.style.background = health > 60 ? 'linear-gradient(90deg,#4eff91,#00e5ff)' : health > 30 ? 'linear-gradient(90deg,#ffe259,#ffa751)' : 'linear-gradient(90deg,#ff4444,#ff0000)';
+  document.getElementById('score-val').textContent = Math.floor(score);
+  document.getElementById('drunk-fill').style.width = drunkness + '%';
+  const dl = document.getElementById('drunk-label');
+  if (drunkness < 20) dl.textContent = 'Sober';
+  else if (drunkness < 40) dl.textContent = '🙂 Tipsy';
+  else if (drunkness < 65) dl.textContent = '😵 Drunk';
+  else if (drunkness < 85) dl.textContent = '🥴 Hammered';
+  else dl.textContent = '💀 Wrecked';
+}
+
+function triggerLevelUp() {
+  state = 'levelup';
+  const ov = document.getElementById('overlay');
+  ov.style.display = 'flex';
+  ov.innerHTML = `
+    <div style="font-size:70px">🎉</div>
+    <h1 style="font-family:Fredoka One,cursive;font-size:40px;color:#4eff91;text-shadow:0 0 30px #4eff91">Level ${level} Done!</h1>
+    <p style="font-size:16px;color:rgba(255,255,255,0.7)">Score: <strong style="color:#ffe259;font-size:24px">${Math.floor(score)}</strong></p>
+    <p style="font-size:14px;color:rgba(255,255,255,0.5)">Level ${level+1} incoming... roads get wilder 🍺</p>
+    <button class="big-btn" onclick="nextLevel()">Next Level 🚀</button>`;
+}
+
+function nextLevel() {
+  level++;
+  timeLeft = 60; timerTick = 0;
+  document.getElementById('level-val').textContent = level;
+  gameSpeed = 3 + (level - 1) * 0.8;
+  health = Math.min(100, health + 20);
+  drunkness = Math.min(100, drunkness + 20);
+  obstacles = [];
+  document.getElementById('overlay').style.display = 'none';
+  state = 'playing';
+}
+
+function endGame(survived) {
+  state = 'gameover';
+  const ov = document.getElementById('overlay');
+  ov.style.display = 'flex';
+  const beers = totalBeers;
+  const dodged = totalDodges;
+  const crashes = totalHits;
+  const rank = score > 500 ? "🏆 Legend" : score > 300 ? "🥇 Expert" : score > 150 ? "🥈 Survivor" : "🚑 Medic Needed";
+  ov.innerHTML = `
+    <div style="font-size:52px">${survived ? '🏆' : '💥'}</div>
+    <div id="final-score-big">${Math.floor(score)}</div>
+    <div id="rank-txt">— ${rank} —</div>
+    <h1 style="font-family:Fredoka One,cursive;font-size:28px;color:${survived?'#4eff91':'#ff4444'}">${survived ? 'YOU SURVIVED!' : 'WRECKED!'}</h1>
+    <div id="score-rows">
+      <div class="score-row"><span>🍺 Beers Consumed</span><span>${beers}</span></div>
+      <div class="score-row"><span>✅ Obstacles Dodged</span><span>${dodged}</span></div>
+      <div class="score-row"><span>💥 Crashes</span><span>${crashes}</span></div>
+      <div class="score-row"><span>🎯 Level Reached</span><span>${level}</span></div>
+    </div>
+    <button class="big-btn" onclick="restartGame()">Play Again 🍺</button>`;
+}
+
+function restartGame() {
+  startGame();
+}
+
+// ── Drawing ──────────────────────────────────────────
+function draw() {
+  ctx.save();
+
+  // Screen shake
+  if (screenShake > 0) {
+    ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake);
+  }
+
+  // Drunk tilt
+  if (drunkness > 40) {
+    const tilt = Math.sin(Date.now() * 0.002) * (drunkness / 100) * 0.03;
+    ctx.translate(W/2, H/2);
+    ctx.rotate(tilt);
+    ctx.translate(-W/2, -H/2);
+  }
+
+  // Background
+  ctx.fillStyle = '#2d5a1b';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grass pattern
+  for (let y = -20; y < H + 20; y += 40) {
+    ctx.fillStyle = y % 80 === 0 ? '#2d5a1b' : '#3a7a22';
+    ctx.fillRect(0, y, W, 20);
+  }
+
+  // Background trees
+  bgTrees.forEach(t => drawTree(t.x, t.y, t.size));
+
+  // Road shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(roadX + 4, 0, roadW, H);
+
+  // Road
+  ctx.fillStyle = '#444';
+  ctx.fillRect(roadX, 0, roadW, H);
+
+  // Road texture stripes
+  ctx.fillStyle = '#3a3a3a';
+  for (let y = 0; y < H; y += 6) {
+    if ((y + Math.floor(roadOffset) * 2) % 12 < 6) {
+      ctx.fillRect(roadX, y, roadW, 3);
+    }
+  }
+
+  // Kerbs
+  for (let y = -20; y < H + 20; y += 30) {
+    const off = (y + roadOffset * 2) % 60;
+    ctx.fillStyle = off < 30 ? '#e74c3c' : '#fff';
+    ctx.fillRect(roadX, y, 8, 30);
+    ctx.fillRect(roadX + roadW - 8, y, 8, 30);
+  }
+
+  // Lane dividers
+  ctx.setLineDash([30, 24]);
+  ctx.lineDashOffset = -roadOffset * 2;
+  ctx.strokeStyle = '#ffe25988';
+  ctx.lineWidth = 3;
+  for (let lane = 1; lane < 3; lane++) {
+    ctx.beginPath();
+    ctx.moveTo(roadX + (roadW / 3) * lane, 0);
+    ctx.lineTo(roadX + (roadW / 3) * lane, H);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Obstacles
+  obstacles.forEach(o => drawObstacle(o));
+
+  // Car shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(car.x + car.w/2 + 4, car.y + car.h - 6, car.w*0.45, 12, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Player car
+  ctx.save();
+  const cx = car.x + car.w / 2, cy = car.y + car.h / 2;
+  ctx.translate(cx, cy);
+  ctx.rotate(carAnim.lean + (car.wobble * 0.015));
+  if (carAnim.crashAnim > 0) {
+    ctx.rotate((Math.random()-0.5) * carAnim.crashAnim * 0.3);
+  }
+  drawPlayerCar(0, 0);
+  ctx.restore();
+
+  // Particles
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // Thrown bottles in flight
+  drawThrownBottles();
+
+  // Floaters
+  floaters.forEach(f => {
+    ctx.globalAlpha = f.life;
+    ctx.font = 'bold 14px Nunito';
+    ctx.fillStyle = f.color;
+    ctx.textAlign = 'center';
+    ctx.fillText(f.text, f.x, f.y);
+  });
+  ctx.globalAlpha = 1;
+
+  // Drunk vignette
+  if (drunkness > 20) {
+    const alpha = (drunkness - 20) / 80 * 0.6;
+    const grad = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.8);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(1, `rgba(180,40,200,${alpha})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Inverted indicator
+  if (inverted) {
+    ctx.fillStyle = 'rgba(255,50,50,0.15)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = 'bold 13px Fredoka One';
+    ctx.fillStyle = '#ff4444';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚠ CONTROLS REVERSED ⚠', W/2, H - 20);
+  }
+
+  ctx.restore();
+}
+
+function drawTree(x, y, size) {
+  // Trunk
+  ctx.fillStyle = '#7c4e2a';
+  ctx.fillRect(x - size*0.15, y, size*0.3, size*0.6);
+  // Canopy
+  ctx.fillStyle = '#2d8a1a';
+  ctx.beginPath();
+  ctx.arc(x, y - size*0.2, size*0.55, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#3ab324';
+  ctx.beginPath();
+  ctx.arc(x - size*0.15, y - size*0.35, size*0.38, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function drawPlayerCar(x, y) {
+  const w = car.w, h = car.h;
+  const hw = w/2, hh = h/2;
+
+  // Body
+  ctx.fillStyle = '#e74c3c';
+  roundRect(ctx, x-hw, y-hh, w, h, 8);
+  ctx.fill();
+
+  // Roof
+  ctx.fillStyle = '#c0392b';
+  roundRect(ctx, x-hw+6, y-hh+14, w-12, h*0.45, 5);
+  ctx.fill();
+
+  // Windows
+  ctx.fillStyle = inverted ? 'rgba(100,200,255,0.8)' : 'rgba(150,230,255,0.75)';
+  roundRect(ctx, x-hw+8, y-hh+16, w-16, h*0.2, 3);
+  ctx.fill();
+  roundRect(ctx, x-hw+8, y-hh+36, w-16, h*0.15, 3);
+  ctx.fill();
+
+  // Wheels
+  ctx.fillStyle = '#222';
+  [-hw+3, hw-11].forEach(wx => {
+    [-hh+6, hh-18].forEach(wy => {
+      ctx.beginPath();
+      ctx.roundRect(x+wx, y+wy, 8, 14, 3);
+      ctx.fill();
+    });
+  });
+
+  // Headlights
+  ctx.fillStyle = '#fffde7';
+  ctx.shadowColor = '#ffe259';
+  ctx.shadowBlur = 8;
+  ctx.fillRect(x-hw+5, y-hh+2, 10, 6);
+  ctx.fillRect(x+hw-15, y-hh+2, 10, 6);
+  ctx.shadowBlur = 0;
+
+  // Driver face
+  const dfaces = ['😐','😄','😵','🥴','😂'];
+  const face = dfaces[Math.min(carAnim.drinkFace, dfaces.length-1)];
+  ctx.font = `${14 + carAnim.drinkAnim * 4}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(face, x, y - hh + 26 + (drunkness > 50 ? Math.sin(Date.now()*0.01)*3 : 0));
+
+  // Beer bottle animation — phases: 1=raising, 2=drinking, 3=throwing
+  if (drinkPhase > 0 && drinkBottle) {
+    ctx.save();
+    const side = drinkBottle.side;
+    const sideX = side === 'right' ? hw + 2 : -hw - 2;
+
+    if (drinkPhase === 1) {
+      // Phase 1: Raise bottle from lap up to mouth — arm swings up
+      const progress = 1 - (drinkPhaseTimer / 30); // 0→1
+      const bottleX = sideX * (1 - progress * 0.6); // moves toward center
+      const bottleY = hh * 0.4 - progress * (hh * 0.8); // rises from lap to mouth
+      const bottleRot = (side === 'right' ? -1 : 1) * (Math.PI * 0.5 - progress * Math.PI * 0.5);
+      ctx.save();
+      ctx.translate(x + bottleX, y + bottleY);
+      ctx.rotate(bottleRot);
+      drawBottle(0, 0, 0.8 + progress * 0.4, true);
+      ctx.restore();
+
+    } else if (drinkPhase === 2) {
+      // Phase 2: Drinking — bottle tilted at mouth, arm shaking
+      const t = Date.now() * 0.02;
+      const shake = Math.sin(t * 3) * 3 * (drunkness / 100 + 0.3);
+      const tilt = (side === 'right' ? -1 : 1) * (Math.PI * 0.25 + Math.sin(t) * 0.1);
+      // Draw arm
+      ctx.strokeStyle = '#f4a460';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x + sideX * 0.6, y - hh * 0.1);
+      ctx.quadraticCurveTo(x + sideX * 0.3 + shake, y - hh * 0.3, x + shake * 0.5, y - hh * 0.42);
+      ctx.stroke();
+      // Bottle at mouth
+      ctx.save();
+      ctx.translate(x + shake * 0.5, y - hh * 0.38);
+      ctx.rotate(tilt);
+      drawBottle(0, 0, 1.2, true);
+      ctx.restore();
+      // Drip drops
+      if (Math.random() < 0.4) {
+        ctx.fillStyle = '#ffe259aa';
+        ctx.beginPath();
+        ctx.arc(x + shake * 0.3, y - hh * 0.28 + Math.random()*8, 1.5, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+    } else if (drinkPhase === 3) {
+      // Phase 3: Wind-up throw — arm pulled back then flings forward
+      const progress = 1 - (drinkPhaseTimer / 20);
+      const armSwing = (side === 'right' ? 1 : -1) * Math.PI * 0.6 * progress;
+      // Draw arm flinging
+      ctx.strokeStyle = '#f4a460';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      const armEndX = x + sideX * (1 - progress * 1.5);
+      const armEndY = y - hh * 0.2 - progress * hh * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x + sideX * 0.5, y - hh * 0.1);
+      ctx.lineTo(armEndX, armEndY);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Crash stars
+  if (carAnim.crashAnim > 0) {
+    ctx.font = '18px serif';
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + Date.now() * 0.01;
+      const r = 30 + carAnim.crashAnim * 10;
+      ctx.fillText('⭐', x + Math.cos(a)*r, y - hh + Math.sin(a)*r);
+    }
+  }
+}
+
+function drawBottle(x, y, scale, full) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  const s = full ? 1 : 0.3; // fullness affects liquid opacity
+
+  // Bottle body
+  ctx.beginPath();
+  ctx.moveTo(-4, 10);
+  ctx.lineTo(-5, 3);
+  ctx.lineTo(-3, -6);
+  ctx.lineTo(-2, -12);
+  ctx.lineTo(2, -12);
+  ctx.lineTo(3, -6);
+  ctx.lineTo(5, 3);
+  ctx.lineTo(4, 10);
+  ctx.closePath();
+  ctx.fillStyle = '#2e7d32';
+  ctx.fill();
+  ctx.strokeStyle = '#1b5e20';
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+
+  // Liquid inside
+  if (full) {
+    ctx.beginPath();
+    ctx.moveTo(-3.5, 9);
+    ctx.lineTo(-4.5, 3);
+    ctx.lineTo(-2.5, -4);
+    ctx.lineTo(2.5, -4);
+    ctx.lineTo(4.5, 3);
+    ctx.lineTo(3.5, 9);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,220,50,0.55)';
+    ctx.fill();
+    // Foam at top
+    ctx.beginPath();
+    ctx.ellipse(0, -4, 2.5, 1.2, 0, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,220,0.7)';
+    ctx.fill();
+  }
+
+  // Bottle neck
+  ctx.beginPath();
+  ctx.moveTo(-2, -12);
+  ctx.lineTo(-1.5, -18);
+  ctx.lineTo(1.5, -18);
+  ctx.lineTo(2, -12);
+  ctx.closePath();
+  ctx.fillStyle = '#388e3c';
+  ctx.fill();
+  ctx.stroke();
+
+  // Cap
+  ctx.beginPath();
+  ctx.rect(-2, -20, 4, 3);
+  ctx.fillStyle = '#c0392b';
+  ctx.fill();
+
+  // Shine
+  ctx.beginPath();
+  ctx.moveTo(-3, 6);
+  ctx.lineTo(-3.5, 0);
+  ctx.lineTo(-2, -4);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawThrownBottles() {
+  bottles.forEach(b => {
+    if (b.state === 'flying') {
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(b.rot);
+      drawBottle(0, 0, 1.1, false);
+      // Motion blur trail
+      ctx.globalAlpha = 0.2;
+      for (let t = 1; t <= 3; t++) {
+        ctx.save();
+        ctx.translate(-b.vx * t * 1.5, -b.vy * t * 0.8);
+        ctx.rotate(-b.rotSpeed * t * 2);
+        drawBottle(0, 0, 1.1 - t * 0.1, false);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    } else if (b.state === 'shattered') {
+      // Shatter flash
+      const alpha = b.shatterTimer / 40;
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.fillStyle = '#aaf0ff';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, (1 - alpha) * 22 + 5, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+  });
+}
+
+function drawObstacle(o) {
+  ctx.save();
+  ctx.translate(o.x + o.def.w/2, o.y + o.def.h/2);
+
+  // Wobble for people
+  if (o.def.type === 'person' || o.def.type === 'dog') {
+    ctx.rotate(Math.sin(o.phase) * 0.15);
+  }
+
+  if (o.hit) {
+    ctx.globalAlpha = 0.3;
+    ctx.rotate(Math.random() * 0.5);
+  }
+
+  ctx.font = `${o.def.h * 0.85}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(o.def.emoji, 0, 0);
+
+  // Shadow
+  ctx.globalAlpha = 0.4;
+  ctx.font = `${o.def.h * 0.5}px serif`;
+  ctx.fillStyle = '#000';
+  ctx.filter = 'blur(3px)';
+  ctx.fillText(o.def.emoji, 2, o.def.h * 0.4);
+  ctx.filter = 'none';
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ── Controls ──────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+});
+document.addEventListener('keyup', e => {
+  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+});
+
+// Touch
+canvas.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; e.preventDefault(); }, {passive:false});
+canvas.addEventListener('touchmove', e => {
+  if (touchStartX === null) return;
+  const dx = e.touches[0].clientX - touchStartX;
+  keys.left = dx < -10; keys.right = dx > 10;
+  e.preventDefault();
+}, {passive:false});
+canvas.addEventListener('touchend', () => { keys.left = false; keys.right = false; touchStartX = null; });
+
+// ── Start loop ──────────────────────────────────────────
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
