@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Catch the Thief!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sky-top:#4FB6C7;
+  --sky-bottom:#BDEBF2;
+  --grass:#6FCB6B;
+  --grass-dark:#57B24C;
+  --sun:#FFC93C;
+  --coral:#FF6F59;
+  --plum:#3A2E5C;
+  --cream:#FFF9EC;
+  --pink:#FF8FB1;
+  --skin:#F4C89B;
+  --shirt-default:#5FA8D3;
+}
+*{box-sizing:border-box;}
+html,body{
+  margin:0; padding:0; height:100%; overflow:hidden;
+  font-family:'Nunito',sans-serif; color:var(--plum);
+  -webkit-tap-highlight-color:transparent; user-select:none;
+}
+#stage-wrap{
+  position:fixed; inset:0;
+  background:linear-gradient(to bottom, var(--sky-top) 0%, var(--sky-top) 55%, var(--sky-bottom) 60%, var(--grass) 62%, var(--grass-dark) 100%);
+  overflow:hidden;
+}
+/* clouds */
+.cloud{position:absolute; opacity:.9; animation:drift linear infinite;}
+.cloud svg{width:100%; height:100%; display:block;}
+@keyframes drift{ from{transform:translateX(-140px);} to{transform:translateX(110vw);} }
+
+.sun{
+  position:absolute; top:4%; right:8%; width:70px; height:70px; border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, #FFE28A, var(--sun));
+  box-shadow:0 0 40px 10px rgba(255,201,60,.5);
+  animation:pulse 3s ease-in-out infinite;
+}
+@keyframes pulse{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.06);} }
+
+/* ---------- overlays ---------- */
+.overlay{
+  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; gap:14px; z-index:50; padding:20px;
+  background:linear-gradient(180deg, rgba(79,182,199,.55), rgba(87,178,76,.55));
+  backdrop-filter:blur(2px);
+}
+.hidden{display:none !important;}
+.card{
+  background:var(--cream); border-radius:28px; padding:28px 34px; box-shadow:0 14px 0 rgba(58,46,92,.25);
+  border:5px solid var(--plum); max-width:92vw;
+}
+h1.title{
+  font-family:'Fredoka',sans-serif; font-weight:700; font-size:clamp(28px,6vw,54px);
+  color:var(--coral); margin:0 0 6px; -webkit-text-stroke:2px var(--plum); text-stroke:2px var(--plum);
+}
+p.sub{font-weight:700; font-size:clamp(14px,2.4vw,18px); margin:0 0 16px; color:var(--plum);}
+.btn{
+  font-family:'Fredoka',sans-serif; font-weight:600; font-size:clamp(16px,2.6vw,22px);
+  background:var(--sun); border:4px solid var(--plum); color:var(--plum);
+  padding:12px 30px; border-radius:20px; cursor:pointer; box-shadow:0 6px 0 var(--plum);
+  transition:transform .08s ease;
+}
+.btn:active{ transform:translateY(6px); box-shadow:0 0 0 var(--plum); }
+.btn.secondary{background:var(--pink);}
+.small-note{font-size:13px; font-weight:700; opacity:.7; margin-top:4px;}
+
+/* ---------- HUD ---------- */
+#hud{
+  position:absolute; top:0; left:0; right:0; z-index:20; display:flex; align-items:center;
+  justify-content:space-between; padding:10px 16px; gap:10px; pointer-events:none;
+}
+.hud-pill{
+  background:rgba(255,249,236,.92); border:3px solid var(--plum); border-radius:16px; padding:6px 12px;
+  display:flex; align-items:center; gap:6px; font-family:'Fredoka',sans-serif; font-weight:600; font-size:15px;
+  box-shadow:0 3px 0 rgba(58,46,92,.4); pointer-events:auto;
+}
+#lives span{font-size:18px;}
+#lives span.lost{filter:grayscale(1) opacity(.35);}
+#wardrobe-tray{display:flex; gap:4px;}
+#wardrobe-tray .slot{
+  width:26px; height:26px; border-radius:8px; background:rgba(58,46,92,.12);
+  display:flex; align-items:center; justify-content:center; font-size:16px; filter:grayscale(1) opacity(.35);
+}
+#wardrobe-tray .slot.on{filter:none; opacity:1; background:var(--sun);}
+
+/* ---------- stage / characters ---------- */
+#play-area{position:absolute; inset:0;}
+.actor{position:absolute; width:70px; height:100px; transform:translate(-50%,-100%); z-index:10; filter:drop-shadow(0 6px 4px rgba(0,0,0,.2));}
+.actor svg{width:100%; height:100%; display:block; overflow:visible;}
+.leg{transform-origin:50% 0%; transition:none;}
+.walking .leg-l{animation:swingL .35s linear infinite;}
+.walking .leg-r{animation:swingR .35s linear infinite;}
+@keyframes swingL{0%,100%{transform:rotate(18deg);} 50%{transform:rotate(-18deg);}}
+@keyframes swingR{0%,100%{transform:rotate(-18deg);} 50%{transform:rotate(18deg);}}
+.actor.face-left svg{transform:scaleX(-1);}
+
+.thief-actor{filter:drop-shadow(0 6px 4px rgba(0,0,0,.25));}
+.thief-actor.stunned .head-group, .thief-actor.stunned .body{animation:wobble .4s ease-in-out infinite;}
+@keyframes wobble{0%,100%{transform:rotate(-4deg);} 50%{transform:rotate(4deg);}}
+.stars{opacity:0; transition:opacity .2s;}
+.thief-actor.stunned .stars{opacity:1; animation:spin 1.2s linear infinite;}
+@keyframes spin{from{transform:rotate(0deg);} to{transform:rotate(360deg);}}
+
+.item{
+  position:absolute; width:44px; height:44px; transform:translate(-50%,-50%); z-index:8;
+  display:flex; align-items:center; justify-content:center; font-size:30px;
+  animation:bob 1.6s ease-in-out infinite; filter:drop-shadow(0 3px 3px rgba(0,0,0,.25));
+  border-radius:50%;
+}
+.item::after{
+  content:""; position:absolute; inset:-6px; border-radius:50%;
+  box-shadow:0 0 0 3px rgba(255,255,255,.55); animation:glow 1.6s ease-in-out infinite;
+}
+@keyframes bob{0%,100%{transform:translate(-50%,-50%) translateY(0);} 50%{transform:translate(-50%,-50%) translateY(-8px);}}
+@keyframes glow{0%,100%{opacity:.35;} 50%{opacity:.85;}}
+
+.sparkle{position:absolute; font-size:22px; pointer-events:none; z-index:30; animation:sparkleUp .7s ease-out forwards;}
+@keyframes sparkleUp{0%{opacity:1; transform:translate(-50%,-50%) scale(.6);} 100%{opacity:0; transform:translate(-50%,-140%) scale(1.4);}}
+
+.floattext{position:absolute; font-family:'Fredoka',sans-serif; font-weight:700; font-size:18px; z-index:31; pointer-events:none; animation:floatUp 1s ease-out forwards;}
+@keyframes floatUp{0%{opacity:1; transform:translate(-50%,0);} 100%{opacity:0; transform:translate(-50%,-46px);}}
+
+/* ---------- touch controls ---------- */
+#dpad{
+  position:absolute; bottom:18px; left:18px; z-index:25; display:grid;
+  grid-template-columns:56px 56px 56px; grid-template-rows:56px 56px 56px; gap:4px;
+  opacity:.9;
+}
+#dpad button{
+  border:3px solid var(--plum); background:rgba(255,249,236,.85); border-radius:14px; font-size:20px;
+  color:var(--plum); box-shadow:0 3px 0 rgba(58,46,92,.4);
+}
+#dpad button:active{transform:translateY(3px); box-shadow:none;}
+.dpad-up{grid-column:2; grid-row:1;}
+.dpad-left{grid-column:1; grid-row:2;}
+.dpad-right{grid-column:3; grid-row:2;}
+.dpad-down{grid-column:2; grid-row:3;}
+
+#level-banner{
+  position:absolute; top:18%; left:50%; transform:translate(-50%,-50%) scale(.6); z-index:40;
+  font-family:'Fredoka',sans-serif; font-weight:700; font-size:clamp(26px,5vw,44px); color:var(--cream);
+  -webkit-text-stroke:3px var(--plum); text-align:center; opacity:0; pointer-events:none;
+}
+#level-banner.show{animation:bannerPop 1.7s ease forwards;}
+@keyframes bannerPop{
+  0%{opacity:0; transform:translate(-50%,-50%) scale(.5);}
+  15%{opacity:1; transform:translate(-50%,-50%) scale(1.08);}
+  25%{transform:translate(-50%,-50%) scale(1);}
+  80%{opacity:1;}
+  100%{opacity:0; transform:translate(-50%,-60%) scale(1);}
+}
+
+@media (max-width:600px){
+  .actor{width:56px; height:80px;}
+  .item{width:38px; height:38px; font-size:24px;}
+}
+</style>
+</head>
+<body>
+
+<div id="stage-wrap">
+  <div class="sun"></div>
+  <div class="cloud" style="top:8%; width:120px; height:50px; animation-duration:38s;"><svg viewBox="0 0 120 50"><ellipse cx="30" cy="30" rx="28" ry="18" fill="white"/><ellipse cx="60" cy="20" rx="30" ry="20" fill="white"/><ellipse cx="90" cy="30" rx="26" ry="17" fill="white"/></svg></div>
+  <div class="cloud" style="top:16%; width:90px; height:38px; animation-duration:52s; animation-delay:-15s;"><svg viewBox="0 0 120 50"><ellipse cx="30" cy="30" rx="28" ry="18" fill="white"/><ellipse cx="60" cy="20" rx="30" ry="20" fill="white"/><ellipse cx="90" cy="30" rx="26" ry="17" fill="white"/></svg></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-pill" id="lives">❤️<span id="life1">❤️</span><span id="life2">❤️</span><span id="life3">❤️</span></div>
+    <div class="hud-pill" id="score-pill">⭐ <span id="score">0</span></div>
+    <div class="hud-pill" id="wardrobe-tray">
+      <div class="slot" data-slot="hat">🎩</div>
+      <div class="slot" data-slot="shirt">👕</div>
+      <div class="slot" data-slot="sunglasses">🕶️</div>
+      <div class="slot" data-slot="watch">⌚</div>
+      <div class="slot" data-slot="bicycle">🚲</div>
+      <div class="slot" data-slot="ball">⚽</div>
+      <div class="slot" data-slot="gem">💎</div>
+      <div class="slot" data-slot="crown">👑</div>
+      <div class="slot" data-slot="trophy">🏆</div>
+    </div>
+  </div>
+
+  <div id="level-banner"></div>
+  <div id="play-area"></div>
+
+  <!-- touch controls -->
+  <div id="dpad">
+    <button class="dpad-up" data-dir="up">▲</button>
+    <button class="dpad-left" data-dir="left">◀</button>
+    <button class="dpad-right" data-dir="right">▶</button>
+    <button class="dpad-down" data-dir="down">▼</button>
+  </div>
+
+  <!-- START -->
+  <div class="overlay" id="screen-start">
+    <div class="card">
+      <h1 class="title">🕵️ Catch the Thief!</h1>
+      <p class="sub">A sneaky thief is trying to steal all the cool stuff!<br>
+      Race to grab the hat, shirt, bike and other treasures before he does —<br>
+      and wear the cool ones you find! Bump into the thief to freeze him. 🥳</p>
+      <button class="btn" id="btn-start">▶ Play!</button>
+      <div class="small-note">Move with arrow keys / WASD, or the buttons on screen</div>
+    </div>
+  </div>
+
+  <!-- LEVEL COMPLETE -->
+  <div class="overlay hidden" id="screen-levelcomplete">
+    <div class="card">
+      <h1 class="title" id="lc-title">🎉 Level Complete!</h1>
+      <p class="sub" id="lc-sub">Great job! Get ready for round two...</p>
+      <button class="btn" id="btn-next">Next Level ▶</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="overlay hidden" id="screen-gameover">
+    <div class="card">
+      <h1 class="title">😿 Oh no, the thief got away!</h1>
+      <p class="sub">He stole too many things. Score: <span id="go-score">0</span></p>
+      <button class="btn" id="btn-retry">Try Again 🔁</button>
+    </div>
+  </div>
+
+  <!-- WIN -->
+  <div class="overlay hidden" id="screen-win">
+    <div class="card">
+      <h1 class="title">🏆 You Beat the Thief!</h1>
+      <p class="sub">You dressed up in style AND grabbed every treasure!<br>Final Score: <span id="win-score">0</span></p>
+      <button class="btn secondary" id="btn-playagain">Play Again 🔁</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= PLAYER TEMPLATE ================= -->
+<template id="tpl-player">
+<svg viewBox="0 0 100 150">
+  <g class="legs">
+    <rect class="leg leg-l" x="34" y="104" width="15" height="36" rx="7" fill="#3A2E5C"/>
+    <rect class="leg leg-r" x="51" y="104" width="15" height="36" rx="7" fill="#3A2E5C"/>
+  </g>
+  <g class="body">
+    <rect class="torso" x="26" y="54" width="48" height="56" rx="18" fill="#5FA8D3"/>
+    <rect class="arm" x="12" y="60" width="14" height="38" rx="7" fill="#F4C89B"/>
+    <rect class="arm" x="74" y="60" width="14" height="38" rx="7" fill="#F4C89B"/>
+    <circle class="watch-mark" cx="19" cy="94" r="6" fill="#FFC93C" stroke="#3A2E5C" stroke-width="2" visibility="hidden"/>
+  </g>
+  <g class="head-group">
+    <g class="hat-slot"></g>
+    <circle class="head" cx="50" cy="34" r="27" fill="#F4C89B"/>
+    <path class="hair" d="M24 30 Q26 4 50 6 Q74 4 76 30 Q60 18 50 20 Q40 18 24 30 Z" fill="#7A4B2E"/>
+    <circle class="eye" cx="41" cy="33" r="3.2" fill="#3A2E5C"/>
+    <circle class="eye" cx="59" cy="33" r="3.2" fill="#3A2E5C"/>
+    <path class="smile" d="M39 44 Q50 53 61 44" stroke="#3A2E5C" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <circle class="cheek" cx="34" cy="41" r="4" fill="#FF8FB1" opacity=".6"/>
+    <circle class="cheek" cx="66" cy="41" r="4" fill="#FF8FB1" opacity=".6"/>
+    <g class="sunglasses" visibility="hidden">
+      <rect x="32" y="28" width="16" height="9" rx="3" fill="#2b2b2b"/>
+      <rect x="52" y="28" width="16" height="9" rx="3" fill="#2b2b2b"/>
+      <line x1="48" y1="32" x2="52" y2="32" stroke="#2b2b2b" stroke-width="2"/>
+    </g>
+  </g>
+</svg>
+</template>
+
+<!-- ================= THIEF TEMPLATE ================= -->
+<template id="tpl-thief">
+<svg viewBox="0 0 100 150">
+  <g class="stars">
+    <text x="18" y="10" font-size="16">✨</text>
+    <text x="70" y="6" font-size="14">✨</text>
+    <text x="45" y="0" font-size="12">✨</text>
+  </g>
+  <g class="legs">
+    <rect class="leg leg-l" x="34" y="104" width="15" height="36" rx="7" fill="#2b2530"/>
+    <rect class="leg leg-r" x="51" y="104" width="15" height="36" rx="7" fill="#2b2530"/>
+  </g>
+  <g class="body">
+    <path class="sack" d="M8 92 q-10 -22 10 -26 q18 -3 16 16 q-2 16 -14 16 Z" fill="#8B5A2B" stroke="#3A2E5C" stroke-width="2"/>
+    <rect class="torso" x="26" y="54" width="48" height="56" rx="16" fill="#4A3F73"/>
+    <rect x="26" y="54" width="48" height="10" fill="#6E5FA3"/>
+    <rect x="26" y="78" width="48" height="8" fill="#6E5FA3"/>
+    <rect class="arm" x="12" y="60" width="14" height="38" rx="7" fill="#E7B48B"/>
+    <rect class="arm" x="74" y="60" width="14" height="38" rx="7" fill="#E7B48B"/>
+  </g>
+  <g class="head-group">
+    <circle class="head" cx="50" cy="34" r="27" fill="#E7B48B"/>
+    <path d="M22 30 Q24 2 50 4 Q76 2 78 30 Q78 14 50 12 Q22 14 22 30 Z" fill="#222"/>
+    <rect x="30" y="26" width="40" height="11" rx="5" fill="#222"/>
+    <circle cx="41" cy="31" r="2.6" fill="#fff"/>
+    <circle cx="59" cy="31" r="2.6" fill="#fff"/>
+    <path class="smile" d="M41 45 Q50 42 59 45" stroke="#3A2E5C" stroke-width="3" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>
+</template>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------------- audio ---------------- */
+let actx = null;
+function ensureAudio(){ if(!actx){ actx = new (window.AudioContext||window.webkitAudioContext)(); } }
+function tone(freq, start, dur, type="sine", vol=0.18){
+  if(!actx) return;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.value = 0;
+  o.connect(g); g.connect(actx.destination);
+  const t0 = actx.currentTime + start;
+  g.gain.linearRampToValueAtTime(vol, t0+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  o.start(t0); o.stop(t0+dur+0.02);
+}
+const sfx = {
+  collect(){ tone(660,0,.12,"triangle"); tone(880,.09,.16,"triangle"); },
+  steal(){ tone(300,0,.14,"sawtooth",.14); tone(180,.1,.22,"sawtooth",.14); },
+  catchThief(){ tone(523,0,.1,"square"); tone(659,.09,.1,"square"); tone(784,.18,.18,"square"); },
+  levelup(){ [523,659,784,1046].forEach((f,i)=>tone(f,i*0.11,.18,"triangle")); },
+  gameover(){ [400,320,260,180].forEach((f,i)=>tone(f,i*0.14,.22,"sawtooth",.15)); },
+  win(){ [523,659,784,1046,1318].forEach((f,i)=>tone(f,i*0.1,.25,"triangle")); },
+};
+
+/* ---------------- state ---------------- */
+const playArea = document.getElementById("play-area");
+const state = {
+  running:false, keys:{}, touchDir:null,
+  player:{x:0,y:0,speed:3.4,facing:1,moving:false,el:null},
+  thief:{x:0,y:0,speed:1.6,stunUntil:0,target:null,el:null,starEl:null},
+  items:[], score:0, lives:3, level:0, worn:new Set(),
+};
+
+const LEVELS = [
+  {label:"Round 1", items:["hat","shirt","bicycle"], thiefSpeed:1.5},
+  {label:"Round 2", items:["sunglasses","watch","ball"], thiefSpeed:2.0},
+  {label:"Round 3", items:["crown","gem","trophy"], thiefSpeed:2.5},
+];
+const ITEM_EMOJI = {
+  hat:"🎩", shirt:"👕", sunglasses:"🕶️", watch:"⌚",
+  bicycle:"🚲", ball:"⚽", gem:"💎", crown:"👑", trophy:"🏆",
+};
+const WEARABLE = new Set(["hat","shirt","sunglasses","watch","crown"]);
+const ITEM_COLORS = { hat:"#FFC93C", shirt:"#5FA8D3", sunglasses:"#3A2E5C", watch:"#FF6F59",
+  bicycle:"#6FCB6B", ball:"#FFF9EC", gem:"#8FD3FE", crown:"#FFC93C", trophy:"#FF8FB1" };
+
+function bounds(){
+  const r = playArea.getBoundingClientRect();
+  return { w:r.width, h:r.height, top:70, bottom:r.height-40 };
+}
+
+/* ---------------- actor creation ---------------- */
+function spawnActor(kind){
+  const tpl = document.getElementById(kind==="player" ? "tpl-player" : "tpl-thief");
+  const wrap = document.createElement("div");
+  wrap.className = "actor " + (kind==="thief" ? "thief-actor" : "player-actor");
+  wrap.appendChild(tpl.content.cloneNode(true));
+  playArea.appendChild(wrap);
+  return wrap;
+}
+
+function resetActors(){
+  playArea.querySelectorAll(".actor,.item").forEach(n=>n.remove());
+  const b = bounds();
+  state.player.el = spawnActor("player");
+  state.player.x = b.w*0.25; state.player.y = b.bottom;
+  state.thief.el = spawnActor("thief");
+  state.thief.x = b.w*0.75; state.thief.y = b.top+40;
+  placeActor(state.player); placeActor(state.thief);
+  applyWornAppearance();
+}
+
+function placeActor(a){
+  a.el.style.left = a.x+"px";
+  a.el.style.top = a.y+"px";
+  a.el.classList.toggle("walking", !!a.moving);
+  a.el.classList.toggle("face-left", a.facing < 0);
+}
+
+/* ---------------- items ---------------- */
+function spawnLevelItems(){
+  const b = bounds();
+  const cfg = LEVELS[state.level];
+  state.items.forEach(it=>it.el && it.el.remove());
+  state.items = cfg.items.map(type=>{
+    const el = document.createElement("div");
+    el.className = "item";
+    el.textContent = ITEM_EMOJI[type];
+    el.style.background = ITEM_COLORS[type]+"55";
+    const x = 60 + Math.random()*(b.w-120);
+    const y = b.top + 30 + Math.random()*(b.bottom-b.top-60);
+    el.style.left = x+"px"; el.style.top = y+"px";
+    playArea.appendChild(el);
+    return {type, x, y, el, collected:false, stolen:false};
+  });
+  state.thief.target = pickThiefTarget();
+}
+
+function remainingItems(){ return state.items.filter(i=>!i.collected && !i.stolen); }
+
+function pickThiefTarget(){
+  const rem = remainingItems();
+  if(rem.length===0) return null;
+  let best=null,bd=Infinity;
+  rem.forEach(it=>{
+    const d = Math.hypot(it.x-state.thief.x, it.y-state.thief.y);
+    if(d<bd){bd=d; best=it;}
+  });
+  return best;
+}
+
+/* ---------------- wardrobe visuals ---------------- */
+function applyWornAppearance(){
+  const svg = state.player.el.querySelector("svg");
+  const hatSlot = svg.querySelector(".hat-slot");
+  const torso = svg.querySelector(".torso");
+  const glasses = svg.querySelector(".sunglasses");
+  const watchMark = svg.querySelector(".watch-mark");
+
+  hatSlot.innerHTML = "";
+  if(state.worn.has("crown")){
+    hatSlot.innerHTML = `<path d="M24 20 L32 4 L42 16 L50 2 L58 16 L68 4 L76 20 Z" fill="#FFC93C" stroke="#3A2E5C" stroke-width="2"/>
+      <circle cx="50" cy="6" r="3" fill="#FF6F59"/>`;
+  } else if(state.worn.has("hat")){
+    hatSlot.innerHTML = `<rect x="24" y="12" width="52" height="8" rx="4" fill="#3A2E5C"/>
+      <rect x="34" y="-6" width="32" height="24" rx="6" fill="#3A2E5C"/>
+      <rect x="34" y="8" width="32" height="5" fill="#FF6F59"/>`;
+  }
+  torso.setAttribute("fill", state.worn.has("shirt") ? "#FF8FB1" : "#5FA8D3");
+  if(state.worn.has("shirt")){
+    let stripes = svg.querySelector(".shirt-stripes");
+    if(!stripes){
+      stripes = document.createElementNS("http://www.w3.org/2000/svg","g");
+      stripes.setAttribute("class","shirt-stripes");
+      stripes.innerHTML = `<rect x="26" y="66" width="48" height="6" fill="#fff" opacity=".7"/>
+        <rect x="26" y="80" width="48" height="6" fill="#fff" opacity=".7"/>`;
+      torso.parentNode.appendChild(stripes);
+    }
+  }
+  glasses.setAttribute("visibility", state.worn.has("sunglasses") ? "visible" : "hidden");
+  watchMark.setAttribute("visibility", state.worn.has("watch") ? "visible" : "hidden");
+}
+
+/* ---------------- effects ---------------- */
+function sparkleAt(x,y,emoji="✨"){
+  const s = document.createElement("div");
+  s.className="sparkle"; s.textContent=emoji;
+  s.style.left=x+"px"; s.style.top=y+"px";
+  playArea.appendChild(s);
+  setTimeout(()=>s.remove(),750);
+}
+function floatTextAt(x,y,text,color){
+  const s=document.createElement("div");
+  s.className="floattext"; s.textContent=text; s.style.color=color||"#3A2E5C";
+  s.style.left=x+"px"; s.style.top=y+"px";
+  playArea.appendChild(s);
+  setTimeout(()=>s.remove(),1000);
+}
+
+/* ---------------- HUD ---------------- */
+function updateHUD(){
+  document.getElementById("score").textContent = state.score;
+  for(let i=1;i<=3;i++){
+    document.getElementById("life"+i).classList.toggle("lost", i>state.lives);
+  }
+  document.querySelectorAll("#wardrobe-tray .slot").forEach(el=>{
+    el.classList.toggle("on", state.worn.has(el.dataset.slot));
+  });
+}
+
+/* ---------------- game flow ---------------- */
+function showBanner(text){
+  const b = document.getElementById("level-banner");
+  b.textContent = text;
+  b.classList.remove("show"); void b.offsetWidth; b.classList.add("show");
+}
+
+function startGame(){
+  ensureAudio();
+  document.getElementById("screen-start").classList.add("hidden");
+  state.score=0; state.lives=3; state.level=0; state.worn=new Set();
+  updateHUD();
+  beginLevel();
+  state.running = true;
+  requestAnimationFrame(loop);
+}
+
+function beginLevel(){
+  const cfg = LEVELS[state.level];
+  state.thief.speed = cfg.thiefSpeed;
+  resetActors();
+  spawnLevelItems();
+  showBanner(cfg.label + "!");
+  updateHUD();
+}
+
+function loseLife(){
+  state.lives--;
+  updateHUD();
+  if(state.lives<=0){
+    endGame(false);
+  }
+}
+
+function endGame(won){
+  state.running = false;
+  if(won){
+    sfx.win();
+    document.getElementById("win-score").textContent = state.score;
+    document.getElementById("screen-win").classList.remove("hidden");
+  } else {
+    sfx.gameover();
+    document.getElementById("go-score").textContent = state.score;
+    document.getElementById("screen-gameover").classList.remove("hidden");
+  }
+}
+
+function checkLevelEnd(){
+  if(remainingItems().length>0) return;
+  const collectedThisLevel = state.items.filter(i=>i.collected).length;
+  const totalThisLevel = state.items.length;
+  if(state.level >= LEVELS.length-1){
+    endGame(true);
+    return;
+  }
+  sfx.levelup();
+  document.getElementById("lc-title").textContent = collectedThisLevel===totalThisLevel ? "🎉 Perfect Round!" : "➡️ Round Cleared!";
+  document.getElementById("lc-sub").textContent = `You grabbed ${collectedThisLevel} of ${totalThisLevel} treasures. Score: ${state.score}`;
+  document.getElementById("screen-levelcomplete").classList.remove("hidden");
+}
+
+/* ---------------- main loop ---------------- */
+function loop(ts){
+  if(!state.running) return;
+  updatePlayer();
+  updateThief();
+  requestAnimationFrame(loop);
+}
+
+function updatePlayer(){
+  const b = bounds();
+  const p = state.player;
+  let dx=0, dy=0;
+  const left = state.keys["ArrowLeft"]||state.keys["a"]||state.touchDir==="left";
+  const right = state.keys["ArrowRight"]||state.keys["d"]||state.touchDir==="right";
+  const up = state.keys["ArrowUp"]||state.keys["w"]||state.touchDir==="up";
+  const down = state.keys["ArrowDown"]||state.keys["s"]||state.touchDir==="down";
+  if(left) dx-=1; if(right) dx+=1; if(up) dy-=1; if(down) dy+=1;
+  const moving = dx!==0||dy!==0;
+  if(moving){
+    const len = Math.hypot(dx,dy)||1;
+    p.x += (dx/len)*p.speed;
+    p.y += (dy/len)*p.speed;
+    p.x = Math.max(24, Math.min(b.w-24, p.x));
+    p.y = Math.max(b.top, Math.min(b.bottom, p.y));
+    if(dx!==0) p.facing = dx;
+  }
+  p.moving = moving;
+  placeActor(p);
+  handlePlayerCollisions();
+}
+
+function updateThief(){
+  const t = state.thief;
+  if(!state.running) return;
+  const now = performance.now();
+  if(now < t.stunUntil){
+    t.el.classList.add("stunned");
+    return;
+  }
+  t.el.classList.remove("stunned");
+  if(!t.target || t.target.collected || t.target.stolen){
+    t.target = pickThiefTarget();
+  }
+  if(!t.target){ t.el.classList.remove("walking"); return; }
+  const dx = t.target.x - t.x, dy = t.target.y - t.y;
+  const dist = Math.hypot(dx,dy);
+  if(dist < 22){
+    stealItem(t.target);
+    t.target = pickThiefTarget();
+  } else {
+    const nx = dx/dist, ny = dy/dist;
+    t.x += nx*t.speed; t.y += ny*t.speed;
+    t.facing = nx;
+    t.moving = true;
+    placeActor(t);
+  }
+  checkThiefCaught();
+}
+
+function handlePlayerCollisions(){
+  const p = state.player;
+  remainingItems().forEach(it=>{
+    const d = Math.hypot(it.x-p.x, it.y-(p.y-50));
+    if(d < 34){
+      collectItem(it);
+    }
+  });
+}
+
+function collectItem(it){
+  it.collected = true;
+  it.el.style.transition="transform .25s ease, opacity .25s ease";
+  it.el.style.transform="translate(-50%,-50%) scale(1.8)";
+  it.el.style.opacity="0";
+  setTimeout(()=>it.el.remove(),250);
+  state.score += 10;
+  if(WEARABLE.has(it.type)){
+    state.worn.add(it.type);
+    applyWornAppearance();
+    floatTextAt(it.x, it.y, "Wearing it! +10", "#57B24C");
+  } else {
+    floatTextAt(it.x, it.y, "Got it! +10", "#57B24C");
+  }
+  sparkleAt(it.x, it.y, "✨");
+  sfx.collect();
+  updateHUD();
+  checkLevelEnd();
+}
+
+function stealItem(it){
+  it.stolen = true;
+  it.el.style.transition="transform .25s ease, opacity .25s ease";
+  it.el.style.transform="translate(-50%,-50%) scale(.2) rotate(30deg)";
+  it.el.style.opacity="0";
+  setTimeout(()=>it.el.remove(),250);
+  floatTextAt(it.x, it.y, "Stolen!", "#FF6F59");
+  sfx.steal();
+  loseLife();
+  checkLevelEnd();
+}
+
+function checkThiefCaught(){
+  const p = state.player, t = state.thief;
+  const now = performance.now();
+  if(now < t.stunUntil) return;
+  const d = Math.hypot(p.x-t.x, (p.y-50)-t.y);
+  if(d < 34){
+    t.stunUntil = now + 2200;
+    state.score += 20;
+    sfx.catchThief();
+    sparkleAt(t.x, t.y, "💫");
+    floatTextAt(t.x, t.y, "Gotcha! +20", "#3A2E5C");
+    updateHUD();
+  }
+}
+
+/* ---------------- input ---------------- */
+window.addEventListener("keydown", e=>{ state.keys[e.key]=true; });
+window.addEventListener("keyup", e=>{ state.keys[e.key]=false; });
+
+document.querySelectorAll("#dpad button").forEach(btn=>{
+  const dir = btn.dataset.dir;
+  const set = ()=>{ state.touchDir = dir; };
+  const clear = ()=>{ if(state.touchDir===dir) state.touchDir=null; };
+  btn.addEventListener("pointerdown", set);
+  btn.addEventListener("pointerup", clear);
+  btn.addEventListener("pointerleave", clear);
+  btn.addEventListener("pointercancel", clear);
+});
+
+/* ---------------- buttons ---------------- */
+document.getElementById("btn-start").addEventListener("click", startGame);
+document.getElementById("btn-next").addEventListener("click", ()=>{
+  document.getElementById("screen-levelcomplete").classList.add("hidden");
+  state.level++;
+  beginLevel();
+  state.running = true;
+  requestAnimationFrame(loop);
+});
+document.getElementById("btn-retry").addEventListener("click", ()=>{
+  document.getElementById("screen-gameover").classList.add("hidden");
+  startGame();
+});
+document.getElementById("btn-playagain").addEventListener("click", ()=>{
+  document.getElementById("screen-win").classList.add("hidden");
+  startGame();
+});
+
+window.addEventListener("resize", ()=>{ if(state.running){ /* keep positions clamped on next frame */ } });
+
+})();
+</script>
+</body>
+</html>
