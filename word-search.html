@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Hunt — Find Your Teammates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#161a24;
+    --ink-2:#1f2433;
+    --paper:#f4ecd8;
+    --paper-2:#eae0c6;
+    --gold:#d4a64c;
+    --teal:#3f8c82;
+    --coral:#c9694f;
+    --line:#3a3f52;
+    --hl1: 250,214,90;   /* yellow */
+    --hl2: 255,153,187;  /* pink */
+    --hl3: 130,201,255;  /* blue */
+    --hl4: 150,220,150;  /* green */
+    --hl5: 255,175,120;  /* orange */
+    --hl6: 200,170,255;  /* violet */
+    --hl7: 255,140,140;  /* red */
+    --hl8: 140,230,220;  /* mint */
+    --hl9: 220,190,150;  /* tan */
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 12% 8%, rgba(212,166,76,0.10), transparent 45%),
+      radial-gradient(circle at 88% 92%, rgba(63,140,130,0.12), transparent 45%),
+      var(--ink);
+    color:var(--paper);
+    font-family:'Space Grotesk', sans-serif;
+  }
+  .wrap{
+    max-width:1080px;
+    margin:0 auto;
+    padding:36px 20px 60px;
+  }
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:18px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:20px;
+    margin-bottom:28px;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--teal);
+    margin:0 0 8px;
+  }
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight:800;
+    font-size:clamp(32px, 5vw, 52px);
+    line-height:1;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  h1 em{
+    color:var(--gold);
+    font-style:normal;
+  }
+  .stats{
+    display:flex;
+    gap:14px;
+  }
+  .stat-box{
+    font-family:'IBM Plex Mono', monospace;
+    background:var(--ink-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 18px;
+    text-align:center;
+    min-width:92px;
+  }
+  .stat-box .num{
+    font-size:26px;
+    font-weight:700;
+    color:var(--gold);
+    display:block;
+    line-height:1.1;
+  }
+  .stat-box.timer .num{ color:var(--coral); }
+  .stat-box.timer.low .num{ animation: pulse 1s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .stat-box .label{
+    font-size:10px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:#9aa0b4;
+  }
+
+  main{
+    display:grid;
+    grid-template-columns: 1fr 280px;
+    gap:28px;
+    align-items:start;
+  }
+  @media (max-width: 780px){
+    main{ grid-template-columns: 1fr; }
+  }
+
+  .board-card{
+    background:var(--paper);
+    border-radius:14px;
+    padding:22px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(0,0,0,0.06);
+    position:relative;
+    overflow:hidden;
+  }
+  .board-card::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background-image: repeating-linear-gradient(0deg, rgba(0,0,0,0.025) 0 1px, transparent 1px 26px);
+    pointer-events:none;
+  }
+  #grid{
+    display:grid;
+    gap:0;
+    position:relative;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:none;
+    width:100%;
+    aspect-ratio:1/1;
+  }
+  .cell{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    color:var(--ink);
+    font-size:clamp(13px, 2.1vw, 20px);
+    cursor:pointer;
+    position:relative;
+    z-index:2;
+  }
+  .cell .found-mark{
+    position:absolute;
+    inset:8%;
+    border-radius:5px;
+    z-index:-1;
+    opacity:0;
+    transform:scale(0.6);
+    transition:transform .25s cubic-bezier(.2,1.4,.4,1), opacity .2s;
+  }
+  .cell.found .found-mark{
+    opacity:0.85;
+    transform:scale(1);
+  }
+  .cell.selecting{
+    background: rgba(63,140,130,0.28);
+    border-radius:5px;
+  }
+  .cell.wrong .found-mark{
+    background: rgba(201,105,79,0.6) !important;
+    opacity:1;
+    transform:scale(1);
+    transition: opacity .5s ease .15s;
+  }
+
+  .side{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+  .panel{
+    background:var(--ink-2);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:18px 20px;
+  }
+  .panel h2{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:#9aa0b4;
+    margin:0 0 14px;
+    display:flex;
+    justify-content:space-between;
+  }
+  .panel h2 span{ color:var(--gold); }
+  #wordlist{
+    list-style:none;
+    margin:0; padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+  }
+  #wordlist li{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:15px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    color:var(--paper);
+    letter-spacing:.02em;
+  }
+  #wordlist li .swatch{
+    width:12px; height:12px;
+    border-radius:3px;
+    background:#555;
+    flex-shrink:0;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15);
+  }
+  #wordlist li{
+    opacity:0;
+    animation: reveal .35s ease forwards;
+  }
+  @keyframes reveal{
+    from{ opacity:0; transform:translateY(5px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+  #hiddenHint{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    line-height:1.6;
+    color:#8890a8;
+    margin:0 0 14px;
+  }
+  .btnrow{
+    display:flex;
+    gap:10px;
+    margin-top:6px;
+  }
+  button{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    letter-spacing:.05em;
+    border:none;
+    border-radius:8px;
+    padding:11px 16px;
+    cursor:pointer;
+    font-weight:600;
+    flex:1;
+  }
+  #startBtn{ background:var(--teal); color:#0d1512; }
+  #resetBtn{ background:transparent; color:var(--paper); border:1px solid var(--line); }
+  button:disabled{ opacity:0.45; cursor:not-allowed; }
+  button:focus-visible, .cell:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+
+  .music-toggle{
+    font-family:'IBM Plex Mono', monospace;
+    background:var(--ink-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 16px;
+    color:var(--paper);
+    text-align:center;
+    min-width:66px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    flex:none;
+  }
+  .music-toggle .icon{ font-size:20px; line-height:1.1; }
+  .music-toggle .label{
+    font-size:10px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:#9aa0b4;
+  }
+
+  #overlay{
+    position:fixed; inset:0;
+    background:rgba(10,12,18,0.82);
+    display:flex; align-items:center; justify-content:center;
+    z-index:50;
+    opacity:0; pointer-events:none;
+    transition:opacity .3s;
+  }
+  #overlay.show{ opacity:1; pointer-events:all; }
+  .modal{
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:14px;
+    padding:38px 42px;
+    max-width:380px;
+    text-align:center;
+    box-shadow:0 30px 60px rgba(0,0,0,0.5);
+  }
+  .modal .big{
+    font-family:'Fraunces', serif;
+    font-weight:800;
+    font-size:40px;
+    margin:6px 0 2px;
+    color:var(--coral);
+  }
+  .modal p{ font-family:'IBM Plex Mono', monospace; font-size:13px; color:#555; margin:4px 0 20px;}
+  .modal button{ background:var(--ink); color:var(--paper); width:100%; padding:13px; }
+
+  @media (prefers-reduced-motion: reduce){
+    .stat-box.timer.low .num{ animation:none; }
+    .cell .found-mark{ transition:none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow">Case File · 8 teammates hiding somewhere</p>
+      <h1>Find Your <em>Mates</em></h1>
+    </div>
+    <div class="stats">
+      <div class="stat-box timer" id="timerBox">
+        <span class="num" id="timeLeft">1:00</span>
+        <span class="label">Time Left</span>
+      </div>
+      <div class="stat-box">
+        <span class="num" id="scoreNum">0</span>
+        <span class="label">Score</span>
+      </div>
+      <div class="stat-box">
+        <span class="num" id="foundNum">0/8</span>
+        <span class="label">Found</span>
+      </div>
+      <button class="music-toggle" id="muteBtn" type="button" aria-label="Toggle background music">
+        <span class="icon" id="muteIcon">🔊</span>
+        <span class="label">Music</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div class="board-card">
+      <div id="grid"></div>
+    </div>
+    <div class="side">
+      <div class="panel">
+        <h2>Teammates found</h2>
+        <ul id="wordlist"></ul>
+        <p id="hiddenHint">Their last names are hidden in the grid. No spoilers — you'll only see who you've found here.</p>
+        <div class="btnrow">
+          <button id="startBtn">Start</button>
+          <button id="resetBtn">Reset</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>How to play</h2>
+        <p style="font-size:13px; color:#c7cbdc; line-height:1.6; margin:0;">
+          Click Start, then click-and-drag (or tap-drag, or click first-letter-then-last-letter) to select a word.
+          Names can run any direction — forwards, backwards, or diagonal. Find all 8 hidden last names before the timer runs out.
+        </p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="overlay">
+  <div class="modal">
+    <p class="eyebrow" style="color:#3f8c82;">Round Over</p>
+    <div class="big" id="resultTitle">Time's Up</div>
+    <p id="resultSub">You found some names.</p>
+    <p id="resultJoke" style="font-style:italic; color:#7a7060; margin:0 0 20px; font-size:12.5px; line-height:1.5;"></p>
+    <button id="playAgainBtn">Play Again</button>
+  </div>
+</div>
+
+<script>
+const WORDS = ["WALLACE","SENTHIVEL","LIVENS","SHEARMAN","COLONICO","HARDIE","KENNEDY","ZYL"];
+
+const JOKES = [
+  "Why don't last names ever get lost? They always know their family tree.",
+  "I looked up the origin of my last name. Turns out it just means 'confused ancestor.'",
+  "What do you call a last name that's always on time? Punctual-ini.",
+  "My last name is so common, autocorrect just gives up and shrugs.",
+  "Why did the first name break up with the last name? It needed more space.",
+  "Some last names are hyphenated. Mine is just permanently 'exhausted.'",
+  "What's a surname's favorite workout? Family tree-climbing.",
+  "I asked my last name for advice. It just said, 'Depends who's asking.'",
+  "Surnames are like passwords — nobody spells them right on the first try.",
+  "Why was the last name bad at hide and seek? It's always at the end of the sentence."
+];
+
+const SCORE_TIERS = [
+  {max:0,    emoji:"🫥", title:"Ghosted",              msg:"You found zero teammates. Either they're expert hiders or it's time for new glasses."},
+  {max:0.25, emoji:"🐌", title:"Slowest Detective Ever", msg:"A snail could unionize faster than this search."},
+  {max:0.5,  emoji:"🕵️", title:"Getting Warmer",        msg:"You're onto something here... eventually."},
+  {max:0.75, emoji:"🔥", title:"On A Roll",             msg:"HR should put you on the next org-chart project."},
+  {max:0.99, emoji:"👀", title:"So Close!",             msg:"One teammate is still hiding in the supply closet."},
+  {max:1,    emoji:"🏆", title:"Certified Mate-Finder",  msg:"Every last name, located. LinkedIn-stalking level: expert."}
+];
+function getTier(fraction){
+  return SCORE_TIERS.find(t => fraction <= t.max) || SCORE_TIERS[SCORE_TIERS.length-1];
+}
+function properCase(w){ return w.charAt(0)+w.slice(1).toLowerCase(); }
+const SIZE = 9;
+const DIRS = [
+  {dr:0,dc:1},{dr:0,dc:-1},{dr:1,dc:0},{dr:-1,dc:0},
+  {dr:1,dc:1},{dr:1,dc:-1},{dr:-1,dc:1},{dr:-1,dc:-1}
+];
+const HL = ["hl1","hl2","hl3","hl4","hl5","hl6","hl7","hl8","hl9"];
+
+let grid, placements, foundSet, score, timer, timeLeft, running, started;
+let selecting=false, selStart=null, selCells=[], dragMoved=false;
+
+const gridEl = document.getElementById('grid');
+const wordlistEl = document.getElementById('wordlist');
+const scoreEl = document.getElementById('scoreNum');
+const foundEl = document.getElementById('foundNum');
+const timeEl = document.getElementById('timeLeft');
+const timerBox = document.getElementById('timerBox');
+const startBtn = document.getElementById('startBtn');
+const resetBtn = document.getElementById('resetBtn');
+const overlay = document.getElementById('overlay');
+const resultTitle = document.getElementById('resultTitle');
+const resultSub = document.getElementById('resultSub');
+const resultJoke = document.getElementById('resultJoke');
+const muteBtn = document.getElementById('muteBtn');
+const muteIcon = document.getElementById('muteIcon');
+document.getElementById('playAgainBtn').onclick = ()=>{ overlay.classList.remove('show'); initGame(); };
+
+/* ---------------- Audio engine (fully synthesized, no files needed) ---------------- */
+let audioCtx, musicGain, sfxGain, musicTimer, musicPlaying=false, musicOn=true;
+const bgRiff = [392.00,440.00,523.25,440.00, 349.23,392.00,440.00,523.25]; // playful little loop
+
+function ensureAudio(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    musicGain = audioCtx.createGain();
+    musicGain.gain.value = musicOn ? 0.5 : 0.0001;
+    musicGain.connect(audioCtx.destination);
+    sfxGain = audioCtx.createGain();
+    sfxGain.gain.value = 0.8;
+    sfxGain.connect(audioCtx.destination);
+  }
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function tone(freq, startTime, dur, opts={}){
+  const {type='triangle', vol=0.09, dest=musicGain} = opts;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, startTime);
+  g.gain.setValueAtTime(0.0001, startTime);
+  g.gain.exponentialRampToValueAtTime(vol, startTime + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, startTime + dur);
+  osc.connect(g).connect(dest);
+  osc.start(startTime);
+  osc.stop(startTime + dur + 0.05);
+}
+
+function scheduleMusic(){
+  if(!musicPlaying) return;
+  const noteDur = 0.22;
+  const now = audioCtx.currentTime + 0.05;
+  bgRiff.forEach((f,i)=> tone(f, now + i*noteDur, noteDur*0.85, {type:'triangle', vol:0.08, dest:musicGain}));
+  tone(bgRiff[0]/2, now, noteDur*4, {type:'sine', vol:0.05, dest:musicGain});
+  tone(bgRiff[4]/2, now + noteDur*4, noteDur*4, {type:'sine', vol:0.05, dest:musicGain});
+  musicTimer = setTimeout(scheduleMusic, bgRiff.length*noteDur*1000);
+}
+function startMusic(){
+  ensureAudio();
+  if(musicPlaying) return;
+  musicPlaying = true;
+  scheduleMusic();
+}
+function stopMusic(){
+  musicPlaying = false;
+  clearTimeout(musicTimer);
+}
+muteBtn.addEventListener('click', ()=>{
+  ensureAudio();
+  musicOn = !musicOn;
+  musicGain.gain.setTargetAtTime(musicOn ? 0.5 : 0.0001, audioCtx.currentTime, 0.05);
+  muteIcon.textContent = musicOn ? '🔊' : '🔈';
+});
+
+function playFoundSound(){
+  ensureAudio();
+  const t0 = audioCtx.currentTime;
+  [523.25,659.25,783.99].forEach((f,i)=> tone(f, t0 + i*0.07, 0.18, {type:'sine', vol:0.14, dest:sfxGain}));
+}
+function playWrongSound(){
+  ensureAudio();
+  const t0 = audioCtx.currentTime;
+  // comedic descending "womp womp" trombone
+  [{f:220,t:0,d:0.28},{f:164,t:0.24,d:0.4}].forEach(n=>{
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(n.f*1.4, t0+n.t);
+    osc.frequency.exponentialRampToValueAtTime(n.f*0.55, t0+n.t+n.d);
+    g.gain.setValueAtTime(0.0001, t0+n.t);
+    g.gain.exponentialRampToValueAtTime(0.16, t0+n.t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+n.t+n.d);
+    osc.connect(g).connect(sfxGain);
+    osc.start(t0+n.t);
+    osc.stop(t0+n.t+n.d+0.05);
+  });
+}
+function playWinSound(){
+  ensureAudio();
+  const t0 = audioCtx.currentTime;
+  [523.25,659.25,783.99,1046.5].forEach((f,i)=> tone(f, t0+i*0.09, 0.3, {type:'triangle', vol:0.15, dest:sfxGain}));
+}
+
+function randLetter(){
+  const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  return A[Math.floor(Math.random()*A.length)];
+}
+
+function buildGrid(){
+  for(let attempt=0; attempt<800; attempt++){
+    const g = Array.from({length:SIZE}, ()=>Array(SIZE).fill(null));
+    const placed = [];
+    let ok = true;
+    const order = [...WORDS].sort((a,b)=> b.length-a.length || Math.random()-0.5);
+    for(const word of order){
+      let placedWord = false;
+      for(let t=0; t<300; t++){
+        const dir = DIRS[Math.floor(Math.random()*DIRS.length)];
+        const row = Math.floor(Math.random()*SIZE);
+        const col = Math.floor(Math.random()*SIZE);
+        const endRow = row + dir.dr*(word.length-1);
+        const endCol = col + dir.dc*(word.length-1);
+        if(endRow<0||endRow>=SIZE||endCol<0||endCol>=SIZE) continue;
+        let fits = true;
+        for(let i=0;i<word.length;i++){
+          const r = row+dir.dr*i, c = col+dir.dc*i;
+          const existing = g[r][c];
+          if(existing!==null && existing!==word[i]){ fits=false; break; }
+        }
+        if(!fits) continue;
+        for(let i=0;i<word.length;i++){
+          const r = row+dir.dr*i, c = col+dir.dc*i;
+          g[r][c] = word[i];
+        }
+        placed.push({word, row, col, dir, cells: Array.from({length:word.length},(_,i)=>({r:row+dir.dr*i, c:col+dir.dc*i}))});
+        placedWord = true;
+        break;
+      }
+      if(!placedWord){ ok=false; break; }
+    }
+    if(ok){
+      for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) if(g[r][c]===null) g[r][c]=randLetter();
+      return {g, placed};
+    }
+  }
+  // fallback: shouldn't happen with this grid size and word list
+  throw new Error("Could not place words");
+}
+
+function keyOf(r,c){ return r+"_"+c; }
+
+function renderGrid(){
+  gridEl.innerHTML = "";
+  gridEl.style.gridTemplateColumns = `repeat(${SIZE}, 1fr)`;
+  gridEl.style.gridTemplateRows = `repeat(${SIZE}, 1fr)`;
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      const div = document.createElement('div');
+      div.className = 'cell';
+      div.dataset.r = r; div.dataset.c = c;
+      div.tabIndex = -1;
+      const mark = document.createElement('div');
+      mark.className = 'found-mark';
+      div.appendChild(mark);
+      const letterSpan = document.createElement('span');
+      letterSpan.textContent = grid[r][c];
+      letterSpan.style.position='relative';
+      div.appendChild(letterSpan);
+      div.addEventListener('mousedown', onDown);
+      div.addEventListener('mouseenter', onEnter);
+      div.addEventListener('touchstart', onTouchStart, {passive:false});
+      div.addEventListener('touchmove', onTouchMove, {passive:false});
+      gridEl.appendChild(div);
+    }
+  }
+}
+document.addEventListener('mouseup', onUp);
+document.addEventListener('touchend', onUp);
+
+function cellEl(r,c){
+  return gridEl.children[r*SIZE+c];
+}
+
+function lineCells(r1,c1,r2,c2){
+  const dr = Math.sign(r2-r1), dc = Math.sign(c2-c1);
+  const len = Math.max(Math.abs(r2-r1), Math.abs(c2-c1))+1;
+  // ensure straight line (horizontal, vertical, diagonal)
+  if(!(r1===r2 || c1===c2 || Math.abs(r2-r1)===Math.abs(c2-c1))) return null;
+  const cells = [];
+  for(let i=0;i<len;i++){
+    cells.push({r:r1+dr*i, c:c1+dc*i});
+  }
+  return cells;
+}
+
+function clearSelectionVisual(){
+  selCells.forEach(({r,c})=> cellEl(r,c).classList.remove('selecting'));
+}
+
+// Selection supports two interaction styles:
+// 1) Drag: mousedown on first letter, drag across, release on last letter.
+// 2) Click-by-click: click first letter, then click each subsequent letter (or
+//    just the last letter) without holding the mouse down the whole time.
+
+function beginSelection(r,c){
+  selecting = true;
+  dragMoved = false;
+  selStart = {r,c};
+  selCells = [{r,c}];
+  clearSelectionVisual();
+  cellEl(r,c).classList.add('selecting');
+}
+
+function onDown(e){
+  if(!running) return;
+  e.preventDefault();
+  const r = +e.currentTarget.dataset.r, c = +e.currentTarget.dataset.c;
+  if(!selecting){
+    beginSelection(r,c);
+  } else if(r===selStart.r && c===selStart.c){
+    // clicked the start cell again: keep selection as-is
+  } else {
+    // second click finalizes a click-by-click selection
+    updateSelection(r,c);
+    finalizeSelection();
+  }
+}
+function onEnter(e){
+  if(!running || !selecting) return;
+  if(e.buttons !== 1) return; // only extend live while the mouse button is actually held
+  dragMoved = true;
+  const r = +e.currentTarget.dataset.r, c = +e.currentTarget.dataset.c;
+  updateSelection(r,c);
+}
+function onTouchStart(e){
+  if(!running) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  const el = document.elementFromPoint(t.clientX, t.clientY);
+  if(!el || !el.closest('.cell')) return;
+  const cell = el.closest('.cell');
+  const r = +cell.dataset.r, c = +cell.dataset.c;
+  if(!selecting){
+    beginSelection(r,c);
+  } else if(r===selStart.r && c===selStart.c){
+    // tapped the start cell again: keep selection as-is
+  } else {
+    updateSelection(r,c);
+    finalizeSelection();
+  }
+}
+function onTouchMove(e){
+  if(!running || !selecting) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  const el = document.elementFromPoint(t.clientX, t.clientY);
+  if(!el || !el.closest('.cell')) return;
+  const cell = el.closest('.cell');
+  const r = +cell.dataset.r, c = +cell.dataset.c;
+  dragMoved = true;
+  updateSelection(r,c);
+}
+
+function updateSelection(r,c){
+  const line = lineCells(selStart.r, selStart.c, r, c);
+  if(!line) return;
+  clearSelectionVisual();
+  selCells = line;
+  selCells.forEach(({r,c})=> cellEl(r,c).classList.add('selecting'));
+}
+
+function finalizeSelection(){
+  selecting = false;
+  checkSelection();
+  clearSelectionVisual();
+}
+
+function onUp(){
+  if(!running || !selecting) return;
+  if(dragMoved){
+    // this release ends a drag selection
+    finalizeSelection();
+  }
+  // otherwise this was just the initial click-down/click-up of a click-by-click
+  // selection: leave `selecting` on so the next click can extend/finish it.
+}
+
+function checkSelection(){
+  if(selCells.length < 2){ selCells=[]; return; }
+  const str1 = selCells.map(({r,c})=>grid[r][c]).join('');
+  const str2 = [...str1].reverse().join('');
+  const match = placements.find(p => !foundSet.has(p.word) && (p.word===str1 || p.word===str2) &&
+    sameCellSet(p.cells, selCells));
+  if(match){
+    markFound(match);
+  } else {
+    // brief wrong flash + funny sound
+    playWrongSound();
+    selCells.forEach(({r,c})=>{
+      const el = cellEl(r,c);
+      el.classList.add('wrong');
+      setTimeout(()=> el.classList.remove('wrong'), 400);
+    });
+  }
+  selCells = [];
+}
+
+function sameCellSet(a,b){
+  if(a.length!==b.length) return false;
+  const A = new Set(a.map(x=>x.r+'_'+x.c));
+  const B = new Set(b.map(x=>x.r+'_'+x.c));
+  if(A.size!==B.size) return false;
+  for(const k of A) if(!B.has(k)) return false;
+  return true;
+}
+
+function markFound(placement){
+  foundSet.add(placement.word);
+  const colorClass = HL[[...WORDS].indexOf(placement.word) % HL.length];
+  const rgb = getComputedStyle(document.documentElement).getPropertyValue('--'+colorClass).trim();
+  placement.cells.forEach(({r,c})=>{
+    const el = cellEl(r,c);
+    el.classList.add('found');
+    const mark = el.querySelector('.found-mark');
+    mark.style.background = `rgba(${rgb},0.85)`;
+  });
+
+  const hint = document.getElementById('hiddenHint');
+  if(hint) hint.remove();
+  const li = document.createElement('li');
+  const sw = document.createElement('span');
+  sw.className = 'swatch';
+  sw.style.background = `rgb(${rgb})`;
+  li.appendChild(sw);
+  const txt = document.createElement('span');
+  txt.textContent = properCase(placement.word);
+  li.appendChild(txt);
+  wordlistEl.appendChild(li);
+
+  playFoundSound();
+
+  score += 100 + Math.max(0, timeLeft) ; // small time bonus
+  scoreEl.textContent = score;
+  foundEl.textContent = `${foundSet.size}/${WORDS.length}`;
+
+  if(foundSet.size === WORDS.length){
+    endGame(true);
+  }
+}
+
+function formatTime(s){
+  const m = Math.floor(s/60);
+  const sec = s%60;
+  return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+
+function tick(){
+  timeLeft--;
+  timeEl.textContent = formatTime(Math.max(0,timeLeft));
+  if(timeLeft<=20) timerBox.classList.add('low');
+  if(timeLeft<=0){
+    endGame(false);
+  }
+}
+
+function endGame(won){
+  running = false;
+  clearInterval(timer);
+  stopMusic();
+  startBtn.disabled = true;
+
+  const fraction = foundSet.size / WORDS.length;
+  const tier = getTier(fraction);
+  if(won) playWinSound();
+
+  resultTitle.textContent = `${tier.emoji} ${tier.title}`;
+  resultSub.textContent = `${tier.msg} — found ${foundSet.size} of ${WORDS.length} mates · Score ${score}`;
+  const joke = JOKES[Math.floor(Math.random()*JOKES.length)];
+  resultJoke.textContent = `😂 ${joke}`;
+  overlay.classList.add('show');
+}
+
+function initGame(){
+  clearInterval(timer);
+  const built = buildGrid();
+  grid = built.g;
+  placements = built.placed;
+  foundSet = new Set();
+  score = 0;
+  timeLeft = 60;
+  running = false;
+  started = false;
+  selecting = false; selCells=[];
+  timerBox.classList.remove('low');
+  timeEl.textContent = formatTime(timeLeft);
+  scoreEl.textContent = "0";
+  foundEl.textContent = `0/${WORDS.length}`;
+  startBtn.disabled = false;
+  startBtn.textContent = "Start";
+  renderGrid();
+  wordlistEl.innerHTML = "";
+  if(!document.getElementById('hiddenHint')){
+    const p = document.createElement('p');
+    p.id = 'hiddenHint';
+    p.textContent = "Their last names are hidden in the grid. No spoilers — you'll only see who you've found here.";
+    wordlistEl.insertAdjacentElement('afterend', p);
+  }
+}
+
+startBtn.addEventListener('click', ()=>{
+  if(started) return;
+  started = true;
+  running = true;
+  startBtn.disabled = true;
+  ensureAudio();
+  startMusic();
+  timer = setInterval(tick, 1000);
+});
+
+resetBtn.addEventListener('click', ()=>{
+  overlay.classList.remove('show');
+  initGame();
+});
+
+initGame();
+</script>
+</body>
+</html>
