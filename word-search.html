@@ -172,6 +172,19 @@
     transform:scale(1);
     transition: opacity .5s ease .15s;
   }
+  .lock-msg{
+    position:absolute;
+    inset:22px;
+    z-index:10;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    background:var(--paper);
+    border-radius:8px;
+  }
+  .board-card.locked .lock-msg{ display:flex; }
+  .board-card.locked #grid{ visibility:hidden; }
 
   .side{
     display:flex;
@@ -340,8 +353,15 @@
   </header>
 
   <main>
-    <div class="board-card">
+    <div class="board-card" id="boardCard">
       <div id="grid"></div>
+      <div class="lock-msg" id="lockMsg">
+        <div>
+          <div style="font-size:28px; margin-bottom:8px;">🔒</div>
+          <div style="font-family:'Fraunces', serif; font-weight:700; font-size:20px; margin-bottom:4px;">Grid hidden</div>
+          <div style="font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:#6b6154;">Hit Start to reveal the letters and begin the hunt.</div>
+        </div>
+      </div>
     </div>
     <div class="side">
       <div class="panel">
@@ -413,6 +433,7 @@ let grid, placements, foundSet, score, timer, timeLeft, running, started;
 let selecting=false, selStart=null, selCells=[], dragMoved=false;
 
 const gridEl = document.getElementById('grid');
+const boardCard = document.getElementById('boardCard');
 const wordlistEl = document.getElementById('wordlist');
 const scoreEl = document.getElementById('scoreNum');
 const foundEl = document.getElementById('foundNum');
@@ -576,7 +597,7 @@ function renderGrid(){
       mark.className = 'found-mark';
       div.appendChild(mark);
       const letterSpan = document.createElement('span');
-      letterSpan.textContent = grid[r][c];
+      letterSpan.className = 'letter';
       letterSpan.style.position='relative';
       div.appendChild(letterSpan);
       div.addEventListener('mousedown', onDown);
@@ -592,6 +613,15 @@ document.addEventListener('touchend', onUp);
 
 function cellEl(r,c){
   return gridEl.children[r*SIZE+c];
+}
+
+function revealGrid(){
+  boardCard.classList.remove('locked');
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      cellEl(r,c).querySelector('.letter').textContent = grid[r][c];
+    }
+  }
 }
 
 function lineCells(r1,c1,r2,c2){
@@ -811,6 +841,7 @@ function initGame(){
   startBtn.disabled = false;
   startBtn.textContent = "Start";
   renderGrid();
+  boardCard.classList.add('locked');
   wordlistEl.innerHTML = "";
   if(!document.getElementById('hiddenHint')){
     const p = document.createElement('p');
@@ -825,6 +856,7 @@ startBtn.addEventListener('click', ()=>{
   started = true;
   running = true;
   startBtn.disabled = true;
+  revealGrid();
   ensureAudio();
   startMusic();
   timer = setInterval(tick, 1000);
