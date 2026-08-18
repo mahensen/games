@@ -71,6 +71,14 @@ p.sub{font-weight:700; font-size:clamp(14px,2.4vw,18px); margin:0 0 16px; color:
 .btn:active{ transform:translateY(6px); box-shadow:0 0 0 var(--plum); }
 .btn.secondary{background:var(--pink);}
 .small-note{font-size:13px; font-weight:700; opacity:.7; margin-top:4px;}
+#countdown-number{
+  font-family:'Fredoka',sans-serif; font-weight:700; font-size:clamp(48px,12vw,90px);
+  color:var(--coral); -webkit-text-stroke:3px var(--plum); text-stroke:3px var(--plum);
+  margin-top:6px; animation:countPulse .7s ease;
+}
+@keyframes countPulse{0%{transform:scale(.4); opacity:0;} 40%{transform:scale(1.15); opacity:1;} 100%{transform:scale(1); opacity:1;}}
+#btn-music{font-size:16px; line-height:1;}
+#btn-music:active{transform:translateY(2px);}
 
 /* ---------- HUD ---------- */
 #hud{
@@ -175,6 +183,8 @@ p.sub{font-weight:700; font-size:clamp(14px,2.4vw,18px); margin:0 0 16px; color:
   <div id="hud">
     <div class="hud-pill" id="lives">❤️<span id="life1">❤️</span><span id="life2">❤️</span><span id="life3">❤️</span></div>
     <div class="hud-pill" id="score-pill">⭐ <span id="score">0</span></div>
+    <div class="hud-pill" id="thief-score-pill">🦹 <span id="thief-score">0</span></div>
+    <button class="hud-pill" id="btn-music" title="Toggle music" style="cursor:pointer;">🎵</button>
     <div class="hud-pill" id="wardrobe-tray">
       <div class="slot" data-slot="hat">🎩</div>
       <div class="slot" data-slot="shirt">👕</div>
@@ -205,26 +215,29 @@ p.sub{font-weight:700; font-size:clamp(14px,2.4vw,18px); margin:0 0 16px; color:
       <h1 class="title">🕵️ Catch the Thief!</h1>
       <p class="sub">A sneaky thief is trying to steal all the cool stuff!<br>
       Race to grab the hat, shirt, bike and other treasures before he does —<br>
-      and wear the cool ones you find! Bump into the thief to freeze him. 🥳</p>
+      and wear the cool ones you find! Bump into the thief to freeze him. 🥳<br>
+      <strong>The thief is racing to 100 points — save as many items as you can before he gets there!</strong></p>
       <button class="btn" id="btn-start">▶ Play!</button>
       <div class="small-note">Move with arrow keys / WASD, or the buttons on screen</div>
+      <div class="small-note" id="start-best" style="margin-top:8px;">🏅 Best Score: <span id="start-best-score">0</span></div>
     </div>
   </div>
 
-  <!-- LEVEL COMPLETE -->
-  <div class="overlay hidden" id="screen-levelcomplete">
+  <!-- ROUND CLEARED / COUNTDOWN (auto-advances, no button) -->
+  <div class="overlay hidden" id="screen-countdown">
     <div class="card">
-      <h1 class="title" id="lc-title">🎉 Level Complete!</h1>
-      <p class="sub" id="lc-sub">Great job! Get ready for round two...</p>
-      <button class="btn" id="btn-next">Next Level ▶</button>
+      <h1 class="title" id="cd-title">🎉 Round Cleared!</h1>
+      <p class="sub" id="cd-sub">Get ready for the next round...</p>
+      <div id="countdown-number">3</div>
     </div>
   </div>
 
   <!-- GAME OVER -->
   <div class="overlay hidden" id="screen-gameover">
     <div class="card">
-      <h1 class="title">😿 Oh no, the thief got away!</h1>
-      <p class="sub">He stole too many things. Score: <span id="go-score">0</span></p>
+      <h1 class="title" id="go-title">⏱️ The Thief Hit 100 Points!</h1>
+      <p class="sub" id="go-sub">You saved some items before he got away with the rest! Score: <span id="go-score">0</span><br>
+      🏅 Best Score: <span id="go-best">0</span></p>
       <button class="btn" id="btn-retry">Try Again 🔁</button>
     </div>
   </div>
@@ -232,8 +245,9 @@ p.sub{font-weight:700; font-size:clamp(14px,2.4vw,18px); margin:0 0 16px; color:
   <!-- WIN -->
   <div class="overlay hidden" id="screen-win">
     <div class="card">
-      <h1 class="title">🏆 You Beat the Thief!</h1>
-      <p class="sub">You dressed up in style AND grabbed every treasure!<br>Final Score: <span id="win-score">0</span></p>
+      <h1 class="title" id="win-title">🏆 You Beat the Thief!</h1>
+      <p class="sub" id="win-sub">You reached 100 points first!<br>Final Score: <span id="win-score">0</span><br>
+      🏅 Best Score: <span id="win-best">0</span></p>
       <button class="btn secondary" id="btn-playagain">Play Again 🔁</button>
     </div>
   </div>
@@ -328,14 +342,105 @@ const sfx = {
   win(){ [523,659,784,1046,1318].forEach((f,i)=>tone(f,i*0.1,.25,"triangle")); },
 };
 
+/* ---------------- funky procedural background music ---------------- */
+function noiseHat(startOffset, dur=0.045, vol=0.07){
+  if(!actx) return;
+  const bufferSize = Math.max(1, Math.floor(actx.sampleRate*dur));
+  const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<bufferSize;i++){ data[i] = (Math.random()*2-1) * (1 - i/bufferSize); }
+  const src = actx.createBufferSource();
+  src.buffer = buffer;
+  const filter = actx.createBiquadFilter();
+  filter.type = "highpass"; filter.frequency.value = 7000;
+  const g = actx.createGain();
+  g.gain.value = vol;
+  src.connect(filter); filter.connect(g); g.connect(actx.destination);
+  const t0 = actx.currentTime + startOffset;
+  src.start(t0); src.stop(t0+dur);
+}
+
+const music = {
+  on:true, timer:null, step:0, nextTime:0,
+  bpm:112,
+  bassPattern: [1,0,0,1, 0,0,1,0, 1,0,0,1, 0,1,0,0], // syncopated funk bass hits
+  bassNotes:   [82.41,0,0,82.41, 0,0,110,0, 98,0,0,82.41, 0,123.47,0,0],
+  hatPattern:  [1,0,1,1, 0,1,0,1, 1,0,1,1, 0,1,0,1],
+  stabSteps:   [6,14], // funky organ/synth stab accents
+  scheduleAhead(){
+    const stepDur = 60/this.bpm/4; // 16th note
+    while(this.nextTime < actx.currentTime + 0.12){
+      const s = this.step % 16;
+      const offset = this.nextTime - actx.currentTime;
+      if(this.bassPattern[s] && this.bassNotes[s]){
+        tone(this.bassNotes[s], offset, stepDur*1.15, "sawtooth", 0.10);
+      }
+      if(this.hatPattern[s]){
+        noiseHat(offset, 0.04, s%4===0 ? 0.09 : 0.05);
+      }
+      if(this.stabSteps.includes(s)){
+        tone(311.13, offset, stepDur*1.4, "square", 0.045);
+        tone(415.30, offset, stepDur*1.4, "square", 0.035);
+      }
+      this.nextTime += stepDur;
+      this.step++;
+    }
+  },
+  start(){
+    if(!this.on) return;
+    ensureAudio();
+    if(this.timer) return;
+    this.step = 0;
+    this.nextTime = actx.currentTime + 0.1;
+    this.timer = setInterval(()=>this.scheduleAhead(), 50);
+  },
+  stop(){
+    if(this.timer){ clearInterval(this.timer); this.timer = null; }
+  },
+  toggle(){
+    this.on = !this.on;
+    if(this.on){ this.start(); } else { this.stop(); }
+    return this.on;
+  }
+};
+
 /* ---------------- state ---------------- */
 const playArea = document.getElementById("play-area");
 const state = {
-  running:false, keys:{}, touchDir:null,
+  running:false, ended:false, keys:{}, touchDir:null,
   player:{x:0,y:0,speed:3.4,facing:1,moving:false,el:null},
-  thief:{x:0,y:0,speed:1.6,stunUntil:0,target:null,el:null,starEl:null},
+  thief:{x:0,y:0,speed:1.6,stunUntil:0,target:null,el:null,starEl:null,score:0},
   items:[], score:0, lives:3, level:0, worn:new Set(),
 };
+
+const WIN_SCORE = 100;
+const BASE_ITEM_SCORE = 10;      // points just for grabbing an item
+const TIME_BONUS_MAX = 15;       // extra points if collected instantly
+const TIME_BONUS_WINDOW = 6000;  // ms over which the time bonus decays to 0
+const FREEZE_BONUS = 20;         // bonus for freezing the thief
+const THIEF_STEAL_SCORE = 8;     // points the thief earns per successful steal
+
+function timeBonusFor(item){
+  const elapsed = performance.now() - item.spawnTime;
+  const frac = Math.max(0, 1 - elapsed/TIME_BONUS_WINDOW);
+  return Math.round(TIME_BONUS_MAX * frac);
+}
+
+/* ---------------- best score (persists across games) ---------------- */
+let bestScore = 0;
+try{ bestScore = parseInt(localStorage.getItem("catchTheThief.bestScore"),10) || 0; }catch(e){ bestScore = 0; }
+function updateBestScoreDisplays(){
+  ["start-best-score"].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent = bestScore; });
+  ["go-best","win-best"].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent = bestScore; });
+}
+function saveBestScore(finalScore){
+  if(finalScore > bestScore){
+    bestScore = finalScore;
+    try{ localStorage.setItem("catchTheThief.bestScore", String(bestScore)); }catch(e){ /* ignore */ }
+  }
+  updateBestScoreDisplays();
+}
+updateBestScoreDisplays();
 
 const LEVELS = [
   {label:"Round 1", items:["hat","shirt","bicycle"], thiefSpeed:1.5},
@@ -397,7 +502,7 @@ function spawnLevelItems(){
     const y = b.top + 30 + Math.random()*(b.bottom-b.top-60);
     el.style.left = x+"px"; el.style.top = y+"px";
     playArea.appendChild(el);
-    return {type, x, y, el, collected:false, stolen:false};
+    return {type, x, y, el, collected:false, stolen:false, spawnTime:performance.now()};
   });
   state.thief.target = pickThiefTarget();
 }
@@ -466,6 +571,7 @@ function floatTextAt(x,y,text,color){
 /* ---------------- HUD ---------------- */
 function updateHUD(){
   document.getElementById("score").textContent = state.score;
+  document.getElementById("thief-score").textContent = state.thief.score;
   for(let i=1;i<=3;i++){
     document.getElementById("life"+i).classList.toggle("lost", i>state.lives);
   }
@@ -481,19 +587,32 @@ function showBanner(text){
   b.classList.remove("show"); void b.offsetWidth; b.classList.add("show");
 }
 
+const BASE_PLAYER_SPEED = 3.4;
+const PLAYER_SPEED_GROWTH = 0.22;  // added per round
+const MAX_PLAYER_SPEED = 6.2;
+const THIEF_SPEED_GROWTH = 0.35;   // added per round
+const MAX_THIEF_SPEED = 5.0;
+
 function startGame(){
   ensureAudio();
   document.getElementById("screen-start").classList.add("hidden");
-  state.score=0; state.lives=3; state.level=0; state.worn=new Set();
+  state.score=0; state.lives=3; state.level=0; state.round=0; state.itemsSaved=0; state.worn=new Set(); state.ended=false;
+  state.thief.score = 0;
+  state.celebrated100 = false;
+  state.player.speed = BASE_PLAYER_SPEED;
   updateHUD();
   beginLevel();
   state.running = true;
+  music.start();
   requestAnimationFrame(loop);
 }
 
 function beginLevel(){
   const cfg = LEVELS[state.level];
-  state.thief.speed = cfg.thiefSpeed;
+  // Every round both the thief and the player move a little faster, ramping up the challenge.
+  state.thief.speed = Math.min(MAX_THIEF_SPEED, cfg.thiefSpeed + THIEF_SPEED_GROWTH * state.round);
+  state.player.speed = Math.min(MAX_PLAYER_SPEED, BASE_PLAYER_SPEED + PLAYER_SPEED_GROWTH * state.round);
+  state.lives = 3; // hearts reset each round — they no longer end the game, only reaching 100 points does
   resetActors();
   spawnLevelItems();
   showBanner(cfg.label + "!");
@@ -501,38 +620,89 @@ function beginLevel(){
 }
 
 function loseLife(){
-  state.lives--;
+  state.lives = Math.max(0, state.lives - 1);
   updateHUD();
-  if(state.lives<=0){
-    endGame(false);
-  }
 }
 
-function endGame(won){
+/* Checks whether either side has reached the win score. Returns true if the game just ended. */
+function checkScoreWin(){
+  if(state.ended) return false;
+  if(!state.celebrated100 && state.score >= WIN_SCORE){
+    state.celebrated100 = true;
+    showBanner("🎉 100+ Points! Keep going!");
+  }
+  if(state.thief.score >= WIN_SCORE){ endGame(false, "thief100"); return true; }
+  return false;
+}
+
+function endGame(won, reason){
+  if(state.ended) return; // prevent a second call from ever overwriting the final result
+  state.ended = true;
   state.running = false;
+  music.stop();
+  const finalScore = state.score; // lock in the score at the exact moment the game ends
+  saveBestScore(finalScore);
   if(won){
     sfx.win();
-    document.getElementById("win-score").textContent = state.score;
+    document.getElementById("win-title").textContent = "🏆 You Beat the Thief!";
+    document.getElementById("win-sub").innerHTML = `You reached 100 points first!<br>Final Score: <span id="win-score">${finalScore}</span><br>🏅 Best Score: <span id="win-best">${bestScore}</span>`;
     document.getElementById("screen-win").classList.remove("hidden");
   } else {
     sfx.gameover();
-    document.getElementById("go-score").textContent = state.score;
+    const title = document.getElementById("go-title");
+    const sub = document.getElementById("go-sub");
+    title.textContent = "⏱️ The Thief Hit 100 Points!";
+    sub.innerHTML = `You saved <strong>${state.itemsSaved}</strong> item${state.itemsSaved===1?"":"s"} before he got away with the rest!<br>Score: <span id="go-score">${finalScore}</span><br>🏅 Best Score: <span id="go-best">${bestScore}</span>`;
     document.getElementById("screen-gameover").classList.remove("hidden");
   }
 }
 
 function checkLevelEnd(){
+  if(state.ended) return; // game already over, don't process further level-end logic
   if(remainingItems().length>0) return;
+  sfx.levelup();
   const collectedThisLevel = state.items.filter(i=>i.collected).length;
   const totalThisLevel = state.items.length;
-  if(state.level >= LEVELS.length-1){
-    endGame(true);
-    return;
-  }
-  sfx.levelup();
-  document.getElementById("lc-title").textContent = collectedThisLevel===totalThisLevel ? "🎉 Perfect Round!" : "➡️ Round Cleared!";
-  document.getElementById("lc-sub").textContent = `You grabbed ${collectedThisLevel} of ${totalThisLevel} treasures. Score: ${state.score}`;
-  document.getElementById("screen-levelcomplete").classList.remove("hidden");
+  state.running = false; // pause the loop during the countdown
+  runRoundClearCountdown(collectedThisLevel, totalThisLevel);
+}
+
+/* Shows a "round cleared" message, then an automatic 3-2-1 countdown, then starts the next round. */
+function runRoundClearCountdown(collected, total){
+  const scr = document.getElementById("screen-countdown");
+  const title = document.getElementById("cd-title");
+  const sub = document.getElementById("cd-sub");
+  const num = document.getElementById("countdown-number");
+
+  title.textContent = (collected===total) ? "🎉 Perfect Round!" : "➡️ Round Cleared!";
+  sub.textContent = `You grabbed ${collected} of ${total} treasures. Get ready...`;
+  num.textContent = "3";
+  num.style.animation = "none"; void num.offsetWidth; num.style.animation = "";
+  scr.classList.remove("hidden");
+
+  let count = 3;
+  const tick = () => {
+    if(state.ended){ scr.classList.add("hidden"); return; }
+    count--;
+    if(count > 0){
+      num.textContent = String(count);
+      num.style.animation = "none"; void num.offsetWidth; num.style.animation = "";
+      setTimeout(tick, 800);
+    } else {
+      num.textContent = "Go!";
+      num.style.animation = "none"; void num.offsetWidth; num.style.animation = "";
+      setTimeout(()=>{
+        scr.classList.add("hidden");
+        if(state.ended) return;
+        state.level = (state.level + 1) % LEVELS.length;
+        state.round++;
+        beginLevel();
+        state.running = true;
+        requestAnimationFrame(loop);
+      }, 650);
+    }
+  };
+  setTimeout(tick, 800);
 }
 
 /* ---------------- main loop ---------------- */
@@ -610,17 +780,22 @@ function collectItem(it){
   it.el.style.transform="translate(-50%,-50%) scale(1.8)";
   it.el.style.opacity="0";
   setTimeout(()=>it.el.remove(),250);
-  state.score += 10;
+  const bonus = timeBonusFor(it);
+  const earned = BASE_ITEM_SCORE + bonus;
+  state.score += earned;
+  state.itemsSaved++;
+  const label = bonus > 0 ? `+${earned} (Speedy! +${bonus})` : `+${earned}`;
   if(WEARABLE.has(it.type)){
     state.worn.add(it.type);
     applyWornAppearance();
-    floatTextAt(it.x, it.y, "Wearing it! +10", "#57B24C");
+    floatTextAt(it.x, it.y, `Wearing it! ${label}`, "#57B24C");
   } else {
-    floatTextAt(it.x, it.y, "Got it! +10", "#57B24C");
+    floatTextAt(it.x, it.y, `Got it! ${label}`, "#57B24C");
   }
   sparkleAt(it.x, it.y, "✨");
   sfx.collect();
   updateHUD();
+  if(checkScoreWin()) return;
   checkLevelEnd();
 }
 
@@ -630,9 +805,12 @@ function stealItem(it){
   it.el.style.transform="translate(-50%,-50%) scale(.2) rotate(30deg)";
   it.el.style.opacity="0";
   setTimeout(()=>it.el.remove(),250);
-  floatTextAt(it.x, it.y, "Stolen!", "#FF6F59");
+  state.thief.score += THIEF_STEAL_SCORE;
+  floatTextAt(it.x, it.y, `Stolen! +${THIEF_STEAL_SCORE}`, "#FF6F59");
   sfx.steal();
-  loseLife();
+  updateHUD();
+  if(checkScoreWin()) return;
+  loseLife(); // costs a life this round, but no longer ends the game — only reaching 100 does
   checkLevelEnd();
 }
 
@@ -643,11 +821,12 @@ function checkThiefCaught(){
   const d = Math.hypot(p.x-t.x, (p.y-50)-t.y);
   if(d < 34){
     t.stunUntil = now + 2200;
-    state.score += 20;
+    state.score += FREEZE_BONUS;
     sfx.catchThief();
     sparkleAt(t.x, t.y, "💫");
-    floatTextAt(t.x, t.y, "Gotcha! +20", "#3A2E5C");
+    floatTextAt(t.x, t.y, `Freeze Bonus! +${FREEZE_BONUS}`, "#3A2E5C");
     updateHUD();
+    checkScoreWin();
   }
 }
 
@@ -667,12 +846,9 @@ document.querySelectorAll("#dpad button").forEach(btn=>{
 
 /* ---------------- buttons ---------------- */
 document.getElementById("btn-start").addEventListener("click", startGame);
-document.getElementById("btn-next").addEventListener("click", ()=>{
-  document.getElementById("screen-levelcomplete").classList.add("hidden");
-  state.level++;
-  beginLevel();
-  state.running = true;
-  requestAnimationFrame(loop);
+document.getElementById("btn-music").addEventListener("click", ()=>{
+  const isOn = music.toggle();
+  document.getElementById("btn-music").textContent = isOn ? "🎵" : "🔇";
 });
 document.getElementById("btn-retry").addEventListener("click", ()=>{
   document.getElementById("screen-gameover").classList.add("hidden");
