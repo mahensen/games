@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hollywood or Not-So-Hollywood</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root{
+    --marquee-black:#0d0b0a;
+    --velvet:#1a0f14;
+    --gold:#e3b23c;
+    --gold-bright:#ffd873;
+    --crimson:#b3243a;
+    --cream:#f3e9d2;
+    --bulb-off:#3a2f28;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at top, #241318 0%, var(--marquee-black) 60%);
+    font-family:'Georgia', 'Times New Roman', serif;
+    color:var(--cream);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .stage{
+    width:100%;
+    max-width:640px;
+  }
+
+  /* Marquee header */
+  .marquee{
+    position:relative;
+    border:6px solid var(--gold);
+    border-radius:10px;
+    padding:18px 20px;
+    background:linear-gradient(180deg, #2a1620, #170c10);
+    box-shadow:0 0 0 3px var(--marquee-black), 0 10px 40px rgba(0,0,0,0.6);
+    margin-bottom:18px;
+    text-align:center;
+    overflow:hidden;
+  }
+  .bulbs{
+    position:absolute;
+    inset:6px;
+    border:2px dashed transparent;
+    pointer-events:none;
+  }
+  .marquee h1{
+    font-family:'Georgia', serif;
+    font-weight:700;
+    letter-spacing:2px;
+    font-size:clamp(22px,5vw,32px);
+    color:var(--gold-bright);
+    text-transform:uppercase;
+    text-shadow:0 0 10px rgba(255,216,115,0.5);
+  }
+  .marquee p{
+    margin-top:6px;
+    font-size:13px;
+    letter-spacing:3px;
+    color:var(--cream);
+    opacity:0.75;
+    text-transform:uppercase;
+  }
+
+  /* HUD */
+  .hud{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:14px;
+    font-size:14px;
+    color:var(--cream);
+  }
+  .hud .box{
+    background:var(--velvet);
+    border:1px solid var(--gold);
+    border-radius:6px;
+    padding:8px 14px;
+    min-width:110px;
+    text-align:center;
+  }
+  .hud .box .label{
+    font-size:10px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--gold);
+    opacity:0.85;
+    margin-bottom:2px;
+  }
+  .hud .box .value{
+    font-size:20px;
+    font-weight:bold;
+    color:var(--gold-bright);
+    font-variant-numeric:tabular-nums;
+  }
+  .hud .box.time-low .value{ color:var(--crimson); }
+
+  /* Timer bar for question */
+  .qtimer-track{
+    height:6px;
+    width:100%;
+    background:var(--velvet);
+    border-radius:3px;
+    overflow:hidden;
+    margin-bottom:16px;
+    border:1px solid rgba(227,178,60,0.3);
+  }
+  .qtimer-fill{
+    height:100%;
+    background:linear-gradient(90deg, var(--crimson), var(--gold));
+    width:100%;
+    transition:width 0.1s linear;
+  }
+
+  /* Card */
+  .card{
+    background:linear-gradient(180deg, #211318, #150d10);
+    border:1px solid rgba(227,178,60,0.4);
+    border-radius:12px;
+    padding:26px 24px;
+    box-shadow:0 15px 40px rgba(0,0,0,0.5);
+    min-height:360px;
+    display:flex;
+    flex-direction:column;
+  }
+  .qnum{
+    font-size:12px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin-bottom:10px;
+  }
+  .clue{
+    font-size:19px;
+    line-height:1.5;
+    color:var(--cream);
+    margin-bottom:22px;
+    font-style:italic;
+  }
+  .clue b{ color:var(--gold-bright); font-style:normal; }
+
+  .options{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+    margin-top:auto;
+  }
+  .opt{
+    background:rgba(243,233,210,0.04);
+    border:1px solid rgba(227,178,60,0.35);
+    border-radius:8px;
+    padding:13px 16px;
+    text-align:left;
+    color:var(--cream);
+    font-size:15.5px;
+    font-family:inherit;
+    cursor:pointer;
+    transition:all 0.15s ease;
+  }
+  .opt:hover:not(:disabled){
+    background:rgba(227,178,60,0.15);
+    border-color:var(--gold-bright);
+    transform:translateX(2px);
+  }
+  .opt:disabled{ cursor:default; }
+  .opt.correct{
+    background:rgba(72,163,89,0.25);
+    border-color:#48a359;
+    color:#c7f5cf;
+  }
+  .opt.wrong{
+    background:rgba(179,36,58,0.3);
+    border-color:var(--crimson);
+    color:#ffd0d6;
+  }
+
+  .feedback{
+    min-height:22px;
+    font-size:13px;
+    margin-top:12px;
+    letter-spacing:0.5px;
+    color:var(--gold-bright);
+    text-align:center;
+  }
+
+  /* Start / End screens */
+  .panel{
+    background:linear-gradient(180deg, #211318, #150d10);
+    border:1px solid rgba(227,178,60,0.4);
+    border-radius:12px;
+    padding:34px 26px;
+    text-align:center;
+    box-shadow:0 15px 40px rgba(0,0,0,0.5);
+  }
+  .panel h2{
+    color:var(--gold-bright);
+    font-size:22px;
+    margin-bottom:12px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+  .panel p{
+    color:var(--cream);
+    opacity:0.85;
+    font-size:14.5px;
+    line-height:1.6;
+    margin-bottom:22px;
+  }
+  .btn{
+    background:linear-gradient(180deg, var(--gold-bright), var(--gold));
+    color:#241318;
+    border:none;
+    border-radius:8px;
+    padding:14px 30px;
+    font-size:15px;
+    font-weight:bold;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    cursor:pointer;
+    font-family:inherit;
+    box-shadow:0 6px 18px rgba(227,178,60,0.35);
+    transition:transform 0.15s ease;
+  }
+  .btn:hover{ transform:translateY(-2px); }
+
+  .score-final{
+    font-size:52px;
+    font-weight:bold;
+    color:var(--gold-bright);
+    margin:6px 0 4px 0;
+    text-shadow:0 0 20px rgba(255,216,115,0.5);
+  }
+  .rank{
+    font-size:15px;
+    color:var(--crimson);
+    text-transform:uppercase;
+    letter-spacing:2px;
+    margin-bottom:20px;
+  }
+  .stat-row{
+    display:flex;
+    justify-content:center;
+    gap:24px;
+    margin-bottom:24px;
+    font-size:13px;
+  }
+  .stat-row div .value{
+    font-size:22px;
+    color:var(--gold-bright);
+    font-weight:bold;
+  }
+  .stat-row div .label{
+    opacity:0.7;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    font-size:11px;
+  }
+  .footer-note{
+    text-align:center;
+    margin-top:14px;
+    font-size:11px;
+    color:var(--cream);
+    opacity:0.4;
+    letter-spacing:1px;
+  }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="marquee">
+    <h1>&#11088; Hollywood or Not-So-Hollywood &#11088;</h1>
+    <p>15 Questions &middot; 1 Minute Reel &middot; Speed Pays</p>
+  </div>
+
+  <!-- START SCREEN -->
+  <div id="start-screen" class="panel">
+    <h2>Roll Camera</h2>
+    <p>
+      We'll give you a ridiculous clue about a real Hollywood star.<br>
+      Pick the correct name from 4 options before the clock runs out.<br>
+      Watch out &mdash; a certain office crew keeps sneaking into the answer choices.<br><br>
+      You've got just <b>1 minute</b> for all 15 questions. The faster you answer, the more points you bank.
+    </p>
+    <button class="btn" onclick="startQuiz()">Start the Show</button>
+  </div>
+
+  <!-- QUIZ SCREEN -->
+  <div id="quiz-screen" class="hidden">
+    <div class="hud">
+      <div class="box" id="time-box">
+        <div class="label">Reel Time</div>
+        <div class="value" id="global-timer">1:00</div>
+      </div>
+      <div class="box">
+        <div class="label">Score</div>
+        <div class="value" id="score-display">0</div>
+      </div>
+    </div>
+
+    <div class="qtimer-track"><div class="qtimer-fill" id="qtimer-fill"></div></div>
+
+    <div class="card">
+      <div class="qnum" id="qnum">Question 1 of 15</div>
+      <div class="clue" id="clue-text"></div>
+      <div class="options" id="options-container"></div>
+      <div class="feedback" id="feedback"></div>
+    </div>
+  </div>
+
+  <!-- END SCREEN -->
+  <div id="end-screen" class="panel hidden">
+    <h2>That's a Wrap</h2>
+    <div class="score-final" id="final-score">0</div>
+    <div class="rank" id="final-rank">RANK</div>
+    <div class="stat-row">
+      <div><div class="value" id="stat-correct">0</div><div class="label">Correct</div></div>
+      <div><div class="value" id="stat-wrong">0</div><div class="label">Missed</div></div>
+      <div><div class="value" id="stat-avg">0</div><div class="label">Avg Speed</div></div>
+    </div>
+    <button class="btn" onclick="startQuiz()">Run It Back</button>
+  </div>
+
+  <div class="footer-note">STARRING TERTIUS, KARA, HARRISON, PETER, DYLAN, MICHAEL &amp; SAMANTHA (NOT REALLY)</div>
+</div>
+
+<script>
+const QUESTIONS = [
+  {
+    clue: "This man played a volleyball's best friend, ran across America for no particular reason, and voiced a toy cowboy &mdash; basically America's dad with an Oscar.",
+    options: ["Tom Hanks", "Dylan Colonico", "Denzel Washington", "Harrison Wallace"],
+    answer: "Tom Hanks"
+  },
+  {
+    clue: "She's played a Prime Minister, a nun who sings, and the Devil's fashion-forward boss, and somehow makes an Oscar nomination look like a light Tuesday.",
+    options: ["Kara Kennedy", "Meryl Streep", "Emma Stone", "Samantha Shearman"],
+    answer: "Meryl Streep"
+  },
+  {
+    clue: "Former wrestler who now can't walk past a movie poster without being on it. Once raised an eyebrow so hard it became a personality trait.",
+    options: ["Michael Livens", "Dwayne Johnson", "Ryan Reynolds", "Peter Hardy"],
+    answer: "Dwayne Johnson"
+  },
+  {
+    clue: "Spent years yelling 'I'm the king of the world,' survived a sinking ship in the movie but apparently not the freezing Atlantic, and finally won an Oscar for wrestling a bear.",
+    options: ["Leonardo DiCaprio", "Tertius Van Zyl", "Brad Pitt", "Keanu Reeves"],
+    answer: "Leonardo DiCaprio"
+  },
+  {
+    clue: "Won an Oscar, then reportedly asked the internet why everyone was making memes about her falling over on the way to accept it.",
+    options: ["Samantha Shearman", "Zendaya", "Jennifer Lawrence", "Margot Robbie"],
+    answer: "Jennifer Lawrence"
+  },
+  {
+    clue: "Built a metal suit in a cave with a box of scraps, then spent a decade in it, quipping the entire time, before retiring to go be dramatic in prestige films.",
+    options: ["Harrison Wallace", "Robert Downey Jr.", "Will Smith", "Denzel Washington"],
+    answer: "Robert Downey Jr."
+  },
+  {
+    clue: "Voiced a superspy cat, played a super-spy assassin in red, and somehow made a job interview scene the most stressful thing in a superhero movie.",
+    options: ["Scarlett Johansson", "Kara Kennedy", "Margot Robbie", "Zendaya"],
+    answer: "Scarlett Johansson"
+  },
+  {
+    clue: "Slapped his way into headlines at an awards show, but before that was mostly known for saving the world from aliens while cracking one-liners.",
+    options: ["Dylan Colonico", "Will Smith", "Tom Hanks", "Michael Livens"],
+    answer: "Will Smith"
+  },
+  {
+    clue: "Won an Oscar for a movie about a man losing his mind at a party, but is more famous for being extremely good at expressing mild confusion on camera.",
+    options: ["Peter Hardy", "Emma Stone", "Jennifer Lawrence", "Kara Kennedy"],
+    answer: "Emma Stone"
+  },
+  {
+    clue: "Was declared 'sexiest man alive' by a magazine so many times they should just retire the title in his honor. Also, apparently, makes his own salad dressing to sell you.",
+    options: ["Brad Pitt", "Tertius Van Zyl", "Keanu Reeves", "Harrison Wallace"],
+    answer: "Brad Pitt"
+  },
+  {
+    clue: "Played a spider-teenager, a green alien in the desert, and somehow makes fashion magazine covers look like an easier job than either of those.",
+    options: ["Michael Livens", "Zendaya", "Samantha Shearman", "Scarlett Johansson"],
+    answer: "Zendaya"
+  },
+  {
+    clue: "Dodged bullets in slow motion in a trench coat, then decades later dodged bullets in a suit while avenging a puppy. The internet insists he is immortal and possibly a golden retriever.",
+    options: ["Peter Hardy", "Keanu Reeves", "Dwayne Johnson", "Dylan Colonico"],
+    answer: "Keanu Reeves"
+  },
+  {
+    clue: "Played a doll who questioned the meaning of existence in front of a pink dream house, and also robbed casinos in her spare time in an earlier career.",
+    options: ["Margot Robbie", "Kara Kennedy", "Emma Stone", "Harrison Wallace"],
+    answer: "Margot Robbie"
+  },
+  {
+    clue: "Plays a superhero with a big mouth and a bigger marketing budget, and once bought his own soccer club apparently just for content.",
+    options: ["Tertius Van Zyl", "Ryan Reynolds", "Robert Downey Jr.", "Michael Livens"],
+    answer: "Ryan Reynolds"
+  },
+  {
+    clue: "Two-time Oscar winner known for commanding, no-nonsense roles, who could fire an entire boardroom with just one eyebrow movement.",
+    options: ["Samantha Shearman", "Denzel Washington", "Will Smith", "Dylan Colonico"],
+    answer: "Denzel Washington"
+  }
+];
+
+const TOTAL_TIME = 60; // 1 minute for the whole quiz
+const QUESTION_WINDOW = 4; // seconds allotted per question for speed scoring
+
+let order = [];
+let currentIndex = 0;
+let score = 0;
+let correctCount = 0;
+let wrongCount = 0;
+let speedSamples = [];
+let globalRemaining = TOTAL_TIME;
+let globalTimerId = null;
+let qTimerId = null;
+let qStartTime = null;
+let questionLocked = false;
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function formatTime(sec){
+  sec = Math.max(0, Math.ceil(sec));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m + ":" + String(s).padStart(2, "0");
+}
+
+function startQuiz(){
+  order = QUESTIONS.map(q => ({...q, options: shuffle(q.options)}));
+  currentIndex = 0;
+  score = 0;
+  correctCount = 0;
+  wrongCount = 0;
+  speedSamples = [];
+  globalRemaining = TOTAL_TIME;
+
+  document.getElementById("start-screen").classList.add("hidden");
+  document.getElementById("end-screen").classList.add("hidden");
+  document.getElementById("quiz-screen").classList.remove("hidden");
+
+  updateScoreDisplay();
+  updateGlobalTimerDisplay();
+
+  clearInterval(globalTimerId);
+  globalTimerId = setInterval(() => {
+    globalRemaining -= 0.1;
+    updateGlobalTimerDisplay();
+    if (globalRemaining <= 0){
+      globalRemaining = 0;
+      updateGlobalTimerDisplay();
+      endQuiz();
+    }
+  }, 100);
+
+  showQuestion();
+}
+
+function updateGlobalTimerDisplay(){
+  const el = document.getElementById("global-timer");
+  el.textContent = formatTime(globalRemaining);
+  const box = document.getElementById("time-box");
+  if (globalRemaining <= 20) box.classList.add("time-low");
+  else box.classList.remove("time-low");
+}
+
+function updateScoreDisplay(){
+  document.getElementById("score-display").textContent = score;
+}
+
+function showQuestion(){
+  if (currentIndex >= order.length){
+    endQuiz();
+    return;
+  }
+  questionLocked = false;
+  const q = order[currentIndex];
+  document.getElementById("qnum").textContent = "Question " + (currentIndex + 1) + " of " + order.length;
+  document.getElementById("clue-text").innerHTML = q.clue;
+  document.getElementById("feedback").textContent = "";
+
+  const container = document.getElementById("options-container");
+  container.innerHTML = "";
+  q.options.forEach(opt => {
+    const btn = document.createElement("button");
+    btn.className = "opt";
+    btn.textContent = opt;
+    btn.onclick = () => selectAnswer(btn, opt, q.answer);
+    container.appendChild(btn);
+  });
+
+  qStartTime = performance.now();
+  const fill = document.getElementById("qtimer-fill");
+  fill.style.transition = "none";
+  fill.style.width = "100%";
+  void fill.offsetWidth; // reflow to restart transition
+  fill.style.transition = `width ${QUESTION_WINDOW}s linear`;
+  requestAnimationFrame(() => { fill.style.width = "0%"; });
+
+  clearTimeout(qTimerId);
+  qTimerId = setTimeout(() => {
+    if (!questionLocked) autoExpireQuestion(q.answer);
+  }, QUESTION_WINDOW * 1000);
+}
+
+function autoExpireQuestion(correctAnswer){
+  questionLocked = true;
+  wrongCount++;
+  speedSamples.push(QUESTION_WINDOW);
+  const buttons = document.querySelectorAll("#options-container .opt");
+  buttons.forEach(b => {
+    b.disabled = true;
+    if (b.textContent === correctAnswer) b.classList.add("correct");
+  });
+  document.getElementById("feedback").textContent = "Time's up! It was " + correctAnswer + ".";
+  setTimeout(nextQuestion, 1200);
+}
+
+function selectAnswer(btn, chosen, correctAnswer){
+  if (questionLocked) return;
+  questionLocked = true;
+  clearTimeout(qTimerId);
+
+  const elapsedSec = Math.min(QUESTION_WINDOW, (performance.now() - qStartTime) / 1000);
+  speedSamples.push(elapsedSec);
+
+  const buttons = document.querySelectorAll("#options-container .opt");
+  buttons.forEach(b => b.disabled = true);
+
+  if (chosen === correctAnswer){
+    const points = Math.max(20, Math.round(100 - elapsedSec * 6));
+    score += points;
+    correctCount++;
+    btn.classList.add("correct");
+    updateScoreDisplay();
+    document.getElementById("feedback").textContent = "Correct! +" + points + " points (" + elapsedSec.toFixed(1) + "s)";
+  } else {
+    wrongCount++;
+    btn.classList.add("wrong");
+    buttons.forEach(b => {
+      if (b.textContent === correctAnswer) b.classList.add("correct");
+    });
+    document.getElementById("feedback").textContent = "Nope &mdash; that was " + correctAnswer + ".";
+  }
+
+  setTimeout(nextQuestion, 1200);
+}
+
+function nextQuestion(){
+  currentIndex++;
+  if (currentIndex >= order.length || globalRemaining <= 0){
+    endQuiz();
+  } else {
+    showQuestion();
+  }
+}
+
+function endQuiz(){
+  clearInterval(globalTimerId);
+  clearTimeout(qTimerId);
+  document.getElementById("quiz-screen").classList.add("hidden");
+  document.getElementById("end-screen").classList.remove("hidden");
+
+  document.getElementById("final-score").textContent = score;
+  document.getElementById("stat-correct").textContent = correctCount;
+  document.getElementById("stat-wrong").textContent = order.length - correctCount;
+
+  const avg = speedSamples.length
+    ? (speedSamples.reduce((a,b) => a+b, 0) / speedSamples.length)
+    : 0;
+  document.getElementById("stat-avg").textContent = avg.toFixed(1) + "s";
+
+  let rank;
+  if (correctCount === order.length && score >= 1300) rank = "A-LIST LEGEND";
+  else if (score >= 1000) rank = "OSCAR CONTENDER";
+  else if (score >= 600) rank = "SUPPORTING ROLE";
+  else if (score >= 300) rank = "BACKGROUND EXTRA";
+  else rank = "CRAFT SERVICES TABLE";
+  document.getElementById("final-rank").textContent = rank;
+}
+</script>
+
+</body>
+</html>
