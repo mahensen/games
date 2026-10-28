@@ -1,0 +1,511 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Picto Quiz</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;700;800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one centred column. A picture card (timer, tiles, letter slots) sits between a slim score bar and the feedback strip. */
+:root {
+  --bg: #edf0f8;
+  --surface: #ffffff;
+  --ink: #131b3a;
+  --muted: #566082;
+  --line: #d3d9ec;
+  --tile: #e3e7f7;
+  --accent: #3a47f5;
+  --accent-ink: #ffffff;
+  --coin: #f2b200;
+  --good: #11795a;
+  --good-bg: #dff3ea;
+  --bad: #c42d3c;
+  --bad-bg: #fbe3e5;
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1226; --surface: #171c38; --ink: #eef0ff; --muted: #9aa3c7; --line: #2a3157;
+    --tile: #222954; --accent: #7c86ff; --accent-ink: #0e1226; --coin: #ffcb2e;
+    --good: #4fd3a0; --good-bg: #123a30; --bad: #ff7a86; --bad-bg: #4a1f2a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1226; --surface: #171c38; --ink: #eef0ff; --muted: #9aa3c7; --line: #2a3157;
+  --tile: #222954; --accent: #7c86ff; --accent-ink: #0e1226; --coin: #ffcb2e;
+  --good: #4fd3a0; --good-bg: #123a30; --bad: #ff7a86; --bad-bg: #4a1f2a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.app { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.1; }
+p { margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 48px; padding: 0 22px; border-radius: 12px;
+  border: 2px solid var(--ink); background: var(--surface); font-weight: 700;
+  transition: transform .08s ease;
+}
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.ghost { border-color: var(--line); color: var(--muted); font-weight: 600; }
+.btn[disabled] { opacity: .5; cursor: default; }
+
+/* Start screen */
+.start { display: flex; flex-direction: column; gap: 22px; padding-top: 8px; }
+.brand { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.6rem, 11vw, 4rem); letter-spacing: -.03em; }
+.brand span { color: var(--accent); }
+.lede { color: var(--muted); font-size: 1.1rem; max-width: 44ch; }
+.demo {
+  display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  background: var(--surface); border: 2px solid var(--line); border-radius: 20px; padding: 18px;
+}
+.demo .tile { width: 72px; }
+.demo .op, .demo .eq { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; color: var(--muted); }
+.demo .ans { font-family: var(--font-display); font-weight: 800; letter-spacing: .12em; color: var(--accent); font-size: 1.3rem; }
+.rules { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.rules li { background: var(--surface); border: 2px solid var(--line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rules b { font-family: var(--font-display); font-size: 1.7rem; line-height: 1; }
+.rules span { color: var(--muted); font-size: .85rem; }
+.best { color: var(--muted); font-size: .95rem; }
+
+/* HUD */
+.hud { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hud .q { color: var(--muted); font-weight: 600; }
+.hud .q b { color: var(--ink); font-family: var(--font-display); font-size: 1.2rem; }
+.pts { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 2px solid var(--line); border-radius: 999px; padding: 4px 14px 4px 6px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pts i { width: 22px; height: 22px; border-radius: 50%; background: var(--coin); display: inline-block; box-shadow: inset 0 0 0 3px rgba(0,0,0,.12); }
+.segs { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px; }
+.segs i { height: 6px; border-radius: 3px; background: var(--line); }
+.segs i.cur { background: var(--accent); }
+.segs i.ok { background: var(--good); }
+.segs i.miss { background: var(--bad); }
+
+/* Question card */
+.card { background: var(--surface); border: 2px solid var(--line); border-radius: 24px; padding: 18px; display: flex; flex-direction: column; gap: 18px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.prompt { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; line-height: 1.2; text-wrap: balance; min-width: 0; }
+.prompt small { display: block; font-family: var(--font-body); font-weight: 500; font-size: .9rem; color: var(--muted); margin-top: 4px; }
+
+.timer { position: relative; width: 72px; height: 72px; flex: none; }
+.timer svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.timer circle { fill: none; stroke-width: 8; }
+.timer .track { stroke: var(--line); }
+.timer .arc { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 188.5; stroke-dashoffset: 0; transition: stroke .2s; }
+.timer.low .arc { stroke: var(--bad); }
+.timer .num { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.timer.low .num { color: var(--bad); animation: tick 1s ease-in-out infinite; }
+.timer.off .num { color: var(--muted); animation: none; }
+@keyframes tick { 50% { transform: scale(1.12); } }
+
+.pics { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.tile {
+  width: clamp(84px, 26vw, 140px); aspect-ratio: 1; flex: none; max-width: 100%;
+  background: var(--tile); border-radius: 22px; display: grid; place-items: center;
+  font-family: var(--font-emoji); font-size: clamp(2.8rem, 12vw, 4.8rem); line-height: 1;
+}
+.demo .tile { font-size: 2.4rem; border-radius: 16px; }
+.pics .op { font-family: var(--font-display); font-weight: 800; font-size: 1.8rem; color: var(--muted); }
+.pics.enter .tile { animation: pop .35s ease both; }
+.pics.enter .tile:nth-of-type(2) { animation-delay: .06s; }
+.pics.enter .tile:nth-of-type(3) { animation-delay: .12s; }
+@keyframes pop { from { transform: scale(.8); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Letter slots with a transparent input laid over them */
+form { display: flex; flex-direction: column; gap: 14px; }
+.slotwrap { position: relative; }
+.slots { display: flex; justify-content: center; gap: 6px; }
+.slot {
+  flex: 1 1 0; max-width: 44px; min-width: 0; height: 52px; border-radius: 10px;
+  border: 2px solid var(--line); background: var(--bg);
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 800; font-size: 1.5rem;
+}
+.slotwrap:focus-within .slot.cur { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.slot.filled { border-color: var(--ink); }
+.slots.good .slot { border-color: var(--good); background: var(--good-bg); color: var(--good); }
+.slots.bad .slot { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+.slots.shake { animation: shake .35s; }
+@keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+#answer { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; border: 0; background: none; cursor: text; }
+.msg { min-height: 1.4em; text-align: center; color: var(--bad); font-weight: 600; font-size: .95rem; }
+.actions { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+
+/* Feedback */
+.feedback { border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px; border: 2px solid transparent; }
+.feedback.good { background: var(--good-bg); border-color: var(--good); }
+.feedback.bad { background: var(--bad-bg); border-color: var(--bad); }
+.feedback h3 { font-size: 1.4rem; }
+.feedback.good h3 { color: var(--good); }
+.feedback.bad h3 { color: var(--bad); }
+.feedback p { color: var(--ink); }
+
+/* Results */
+.result { display: flex; flex-direction: column; gap: 20px; }
+.scorebox { background: var(--accent); color: var(--accent-ink); border-radius: 24px; padding: 24px; display: flex; flex-direction: column; gap: 6px; }
+.scorebox .label { font-weight: 600; opacity: .85; }
+.scorebox .big { font-family: var(--font-display); font-weight: 800; font-size: clamp(3.4rem, 18vw, 5.2rem); line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.scorebox .big small { font-size: .35em; font-weight: 700; opacity: .75; letter-spacing: 0; }
+.scorebox .verdict { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; }
+.scorebox .sub { opacity: .9; }
+.review { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.review li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; background: var(--surface); border: 2px solid var(--line); border-radius: 14px; padding: 10px 14px; }
+.review .em { font-family: var(--font-emoji); font-size: 1.4rem; white-space: nowrap; }
+.review .w { font-family: var(--font-display); font-weight: 700; letter-spacing: .06em; overflow-wrap: anywhere; }
+.review .p { font-weight: 700; font-variant-numeric: tabular-nums; }
+.review .p.ok { color: var(--good); }
+.review .p.miss { color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<main class="app">
+
+  <section id="screen-start" class="start">
+    <h1 class="brand">Picto<span>Quiz</span></h1>
+    <p class="lede">Each picture is one part of a word. Join the parts in order and type the whole word.</p>
+    <div class="demo" aria-label="Example question">
+      <div class="tile">🌧️</div><span class="op">+</span><div class="tile">🏹</div><span class="eq">=</span><span class="ans">R A I N B O W</span>
+    </div>
+    <ul class="rules">
+      <li><b>10</b><span>questions</span></li>
+      <li><b>20s</b><span>per question</span></li>
+      <li><b>200</b><span>points at most each</span></li>
+    </ul>
+    <p class="best">Every correct word scores 100 points, plus 5 for each second left on the clock.</p>
+    <div><button class="btn primary" id="btn-start" type="button">Start quiz</button></div>
+    <p class="best" id="best-line" hidden></p>
+  </section>
+
+  <section id="screen-play" hidden>
+    <div class="app">
+      <div class="hud">
+        <div class="q">Question <b id="qnum">1</b> of 10</div>
+        <div class="pts"><i aria-hidden="true"></i><span id="score">0</span> pts</div>
+      </div>
+      <div class="segs" id="segs" aria-hidden="true"></div>
+
+      <div class="card">
+        <div class="top">
+          <div class="prompt" id="prompt"></div>
+          <div class="timer" id="timer" role="timer" aria-label="Time left">
+            <svg viewBox="0 0 72 72" aria-hidden="true">
+              <circle class="track" cx="36" cy="36" r="30"></circle>
+              <circle class="arc" id="arc" cx="36" cy="36" r="30"></circle>
+            </svg>
+            <div class="num" id="secs">20</div>
+          </div>
+        </div>
+
+        <div class="pics" id="pics"></div>
+
+        <form id="form" autocomplete="off">
+          <div class="slotwrap">
+            <div class="slots" id="slots"></div>
+            <input id="answer" type="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Your answer">
+          </div>
+          <div class="msg" id="msg" aria-live="polite"></div>
+          <div class="actions">
+            <button class="btn primary" id="btn-check" type="submit">Check answer</button>
+            <button class="btn ghost" id="btn-skip" type="button">Skip</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="feedback" id="feedback" hidden aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="screen-end" class="result" hidden>
+    <div class="scorebox">
+      <div class="label">Your final score</div>
+      <div class="big"><span id="final">0</span> <small>/ 2,000</small></div>
+      <div class="verdict" id="verdict"></div>
+      <div class="sub" id="sub"></div>
+    </div>
+    <h2 style="font-size:1.3rem">Your answers</h2>
+    <ul class="review" id="review"></ul>
+    <p class="best" id="best-end"></p>
+    <div><button class="btn primary" id="btn-again" type="button">Play again</button></div>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  var TOTAL = 10, SECONDS = 20, BASE = 100, PER_SEC = 5, CIRC = 188.5;
+
+  // Every question is two pictures; each picture is one part of the answer word, in order.
+  var BANK = [
+    { word: "BOOKWORM", pics: ["📖", "🪱"] },
+    { word: "DRAGONFLY", pics: ["🐉", "🪰"] },
+    { word: "BEDBUG", pics: ["🛏️", "🐛"] },
+    { word: "BASKETBALL", pics: ["🧺", "⚽"] },
+    { word: "BLACKBIRD", pics: ["⚫", "🐦"] },
+    { word: "GOLDFISH", pics: ["🥇", "🐟"] },
+    { word: "SUNBURN", pics: ["☀️", "🔥"] },
+    { word: "MOONWALK", pics: ["🌙", "🚶"] },
+    { word: "SEAHORSE", pics: ["🌊", "🐴"] },
+    { word: "WATERMELON", pics: ["💧", "🍈"] },
+    { word: "BUTTERCUP", pics: ["🧈", "☕"] },
+    { word: "BUTTERFLY", pics: ["🧈", "🪰"] },
+    { word: "SUNGLASSES", pics: ["☀️", "🕶️"] },
+    { word: "HORSESHOE", pics: ["🐴", "👟"] },
+    { word: "MOONLIGHT", pics: ["🌙", "💡"] },
+    { word: "TREEHOUSE", pics: ["🌳", "🏠"] },
+    { word: "TOOTHPICK", pics: ["🦷", "⛏️"] },
+    { word: "EYEBALL", pics: ["👁️", "⚽"] },
+    { word: "HANDBAG", pics: ["✋", "👜"] },
+    { word: "ARMCHAIR", pics: ["💪", "🪑"] },
+    { word: "BUTTERMILK", pics: ["🧈", "🥛"] },
+    { word: "PANCAKE", pics: ["🍳", "🎂"] },
+    { word: "HONEYMOON", pics: ["🍯", "🌙"] },
+    { word: "STARLIGHT", pics: ["⭐", "💡"] },
+    { word: "BOOKMARK", pics: ["📖", "🔖"] },
+    { word: "SEASHELL", pics: ["🌊", "🐚"] },
+    { word: "PAPERCLIP", pics: ["📄", "📎"] },
+    { word: "CATWALK", pics: ["🐱", "🚶"] },
+    { word: "KEYHOLE", pics: ["🔑", "🕳️"] },
+    { word: "FISHBOWL", pics: ["🐟", "🥣"] },
+    { word: "SUNDAY", pics: ["☀️", "📅"] },
+    { word: "PEPPERMINT", pics: ["🌶️", "🌿"] },
+    { word: "TEASPOON", pics: ["🍵", "🥄"] },
+    { word: "CORNFLOWER", pics: ["🌽", "🌸"] }
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var screens = { start: $("screen-start"), play: $("screen-play"), end: $("screen-end") };
+  var state = null, timerId = null;
+
+  function show(name) {
+    Object.keys(screens).forEach(function (k) { screens[k].hidden = k !== name; });
+    window.scrollTo(0, 0);
+  }
+
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function norm(s) { return String(s).toUpperCase().replace(/[^A-Z]/g, ""); }
+  function fmt(n) { return n.toLocaleString("en-US"); }
+
+  function getBest() {
+    try { var v = parseInt(localStorage.getItem("picto-quiz-best"), 10); return isNaN(v) ? null : v; } catch (e) { return null; }
+  }
+  function setBest(v) { try { localStorage.setItem("picto-quiz-best", String(v)); } catch (e) {} }
+
+  function showBestOnStart() {
+    var b = getBest(), el = $("best-line");
+    if (b === null) { el.hidden = true; return; }
+    el.textContent = "Your best score: " + fmt(b);
+    el.hidden = false;
+  }
+
+  function startGame() {
+    state = { order: shuffle(BANK).slice(0, TOTAL), i: 0, score: 0, results: [], locked: false, deadline: 0 };
+    $("score").textContent = "0";
+    show("play");
+    showQuestion();
+  }
+
+  function renderSegs() {
+    var html = "";
+    for (var k = 0; k < TOTAL; k++) {
+      var cls = k < state.results.length ? (state.results[k].points > 0 ? "ok" : "miss") : (k === state.i ? "cur" : "");
+      html += '<i class="' + cls + '"></i>';
+    }
+    $("segs").innerHTML = html;
+  }
+
+  function showQuestion() {
+    var q = state.order[state.i];
+    state.locked = false;
+    $("qnum").textContent = String(state.i + 1);
+    renderSegs();
+
+    $("prompt").innerHTML = 'Join the pictures into one word<small>Each picture is one part of the word. ' + q.word.length + ' letters.</small>';
+
+    var sep = '<span class="op" aria-hidden="true">+</span>';
+    $("pics").className = "pics";
+    $("pics").innerHTML = q.pics.map(function (p) {
+      return '<div class="tile" role="img" aria-label="Picture">' + p + "</div>";
+    }).join(sep);
+    void $("pics").offsetWidth;
+    $("pics").className = "pics enter";
+
+    var slots = "";
+    for (var k = 0; k < q.word.length; k++) slots += '<span class="slot"></span>';
+    $("slots").className = "slots";
+    $("slots").innerHTML = slots;
+
+    var input = $("answer");
+    input.value = "";
+    input.maxLength = q.word.length;
+    input.disabled = false;
+    $("msg").textContent = "";
+    $("btn-check").disabled = false;
+    $("btn-skip").disabled = false;
+    $("feedback").hidden = true;
+    $("feedback").innerHTML = "";
+    paintSlots();
+    $("timer").className = "timer";
+
+    state.deadline = Date.now() + SECONDS * 1000;
+    tick();
+    clearInterval(timerId);
+    timerId = setInterval(tick, 100);
+    input.focus({ preventScroll: true });
+  }
+
+  function remaining() { return Math.max(0, (state.deadline - Date.now()) / 1000); }
+
+  function tick() {
+    if (!state || state.locked) return;
+    var r = remaining();
+    $("secs").textContent = String(Math.ceil(r));
+    $("arc").style.strokeDashoffset = String(CIRC * (1 - r / SECONDS));
+    $("timer").className = "timer" + (r <= 5 ? " low" : "");
+    if (r <= 0) finish("time");
+  }
+
+  function paintSlots() {
+    var v = $("answer").value, nodes = $("slots").children;
+    for (var k = 0; k < nodes.length; k++) {
+      var ch = v.charAt(k);
+      nodes[k].textContent = ch;
+      nodes[k].className = "slot" + (ch ? " filled" : "") + (k === Math.min(v.length, nodes.length - 1) ? " cur" : "");
+    }
+  }
+
+  function revealAnswer(word, cls) {
+    var nodes = $("slots").children;
+    for (var k = 0; k < nodes.length; k++) { nodes[k].textContent = word.charAt(k); nodes[k].className = "slot"; }
+    $("slots").className = "slots " + cls;
+  }
+
+  function finish(reason) {
+    if (state.locked) return;
+    state.locked = true;
+    clearInterval(timerId);
+    var q = state.order[state.i];
+    var left = remaining();
+    var points = 0;
+    var input = $("answer");
+    input.disabled = true;
+    $("btn-check").disabled = true;
+    $("btn-skip").disabled = true;
+    $("timer").className = "timer off";
+
+    var fb = $("feedback"), isLast = state.i === TOTAL - 1;
+    var next = '<div><button class="btn primary" id="btn-next" type="button">' + (isLast ? "See my score" : "Next question") + "</button></div>";
+
+    if (reason === "correct") {
+      var secs = Math.ceil(left);
+      points = BASE + secs * PER_SEC;
+      state.score += points;
+      $("score").textContent = fmt(state.score);
+      revealAnswer(q.word, "good");
+      fb.className = "feedback good";
+      fb.innerHTML = "<h3>Correct! +" + points + " points</h3><p>" + BASE + " for the word and " + (secs * PER_SEC) + " for " + secs + " second" + (secs === 1 ? "" : "s") + " left.</p>" + next;
+    } else {
+      revealAnswer(q.word, "bad");
+      fb.className = "feedback bad";
+      fb.innerHTML = "<h3>" + (reason === "time" ? "Time is up" : "Skipped") + "</h3><p>The word was <b>" + q.word + "</b>.</p>" + next;
+    }
+    fb.hidden = false;
+    state.results.push({ q: q, points: points });
+    renderSegs();
+    $("btn-next").addEventListener("click", advance);
+    $("btn-next").focus();
+  }
+
+  function advance() {
+    if (state.i >= TOTAL - 1) { showEnd(); return; }
+    state.i++;
+    showQuestion();
+  }
+
+  function onSubmit(e) {
+    e.preventDefault();
+    if (state.locked) return;
+    var guess = norm($("answer").value);
+    if (!guess) return;
+    if (guess === state.order[state.i].word) { finish("correct"); return; }
+    $("msg").textContent = "Not quite. Try again.";
+    var s = $("slots");
+    s.className = "slots";
+    void s.offsetWidth;
+    s.className = "slots shake";
+    $("answer").value = "";
+    paintSlots();
+  }
+
+  function verdictFor(score) {
+    if (score >= 1600) return "Sharp eyes. Nearly perfect.";
+    if (score >= 1000) return "Nicely done.";
+    if (score >= 500) return "A solid start.";
+    return "Tough round. Try again.";
+  }
+
+  function showEnd() {
+    var correct = state.results.filter(function (r) { return r.points > 0; }).length;
+    $("final").textContent = fmt(state.score);
+    $("verdict").textContent = verdictFor(state.score);
+    $("sub").textContent = correct + " of " + TOTAL + " words guessed.";
+    $("review").innerHTML = state.results.map(function (r) {
+      var ok = r.points > 0;
+      return '<li><span class="em" aria-hidden="true">' + r.q.pics.join("") + '</span><span class="w">' + r.q.word + '</span><span class="p ' + (ok ? "ok" : "miss") + '">' + (ok ? "+" + r.points : "0") + "</span></li>";
+    }).join("");
+
+    var prev = getBest(), line;
+    if (prev === null || state.score > prev) {
+      setBest(state.score);
+      line = prev === null ? "Saved as your best score." : "New best score. The old one was " + fmt(prev) + ".";
+    } else {
+      line = "Your best score is " + fmt(prev) + ".";
+    }
+    $("best-end").textContent = line;
+    show("end");
+    $("btn-again").focus({ preventScroll: true });
+  }
+
+  $("btn-start").addEventListener("click", startGame);
+  $("btn-again").addEventListener("click", function () { showBestOnStart(); startGame(); });
+  $("btn-skip").addEventListener("click", function () { finish("skip"); });
+  $("form").addEventListener("submit", onSubmit);
+  $("answer").addEventListener("input", function () {
+    var el = $("answer");
+    el.value = el.value.replace(/[^a-zA-Z]/g, "").toUpperCase();
+    $("msg").textContent = "";
+    paintSlots();
+  });
+  $("slots").addEventListener("click", function () { $("answer").focus(); });
+
+  showBestOnStart();
+})();
+</script>
+
+</body></html>
